@@ -1,175 +1,210 @@
-// Die geführte Auswahl der Kaufseite (docs/specs/2026-09-23-gefuehrte-kaufseite.md § 2):
-// Anlass → Absicht → Gefühl → Größe der Geste → eine florale Antwort. Ohne DOM, getestet in beratung.test.mjs.
+// Die geführte Auswahl der Kaufseite (docs/specs/2026-09-23-gefuehrte-kaufseite.md § 2, Layout nach der Vorlage des
+// Nutzers vom 2026-09-23): Anlass → Botschaft (+ Preisrahmen, optional) → „Mein Vorschlag für dich" mit Varianten.
+// Ohne DOM, getestet in beratung.test.mjs.
 //
-// Der Anlass bestimmt Farbwelt, Sprache und welche Gefühle passen; die Absicht schlägt die Größe vor; Gefühl und Größe
-// sind das Produkt. Namen und Texte des Ergebnisses sind Sprache, keine eigenen Produkte (Ela pflegt 15, nicht 90).
+// Das Produkt sind Gefühl × Größe (15 Produkte). Das Gefühl leitet sich aus Anlass und Botschaft ab, die Größe aus
+// Botschaft oder Preisrahmen; „etwas ruhiger / wilder / größer / günstiger" verschiebt beides. Namen und Texte des
+// Vorschlags sind Sprache, keine eigenen Produkte.
 
 import { finden, gefuehl, GEFUEHLE, groesse, GROESSEN } from "./sortiment.js";
 
 const ALLE = GEFUEHLE.map((g) => g.id);
 
+/** Von ruhig nach wild – für „etwas ruhiger" und „etwas wilder". */
+export const RUHE_REIHE = ["zart", "elegant", "natuerlich", "froehlich", "ausdrucksstark"];
+
 /**
- * Die sechs Anlasswelten. `farben`: Grund, Fläche, Akzent, Tinte und Bildtöne für die Zeichnungen.
- * `absichten`: was die Geste leisten soll – `groesse` ist nur ein Vorschlag für Schritt 4.
- * `namen`: der Name der floralen Antwort je Gefühl.
+ * Die sechs Anlasswelten.
+ * `absichten`: was die Geste sagen soll – mit Gefühl und Größe, die dazu passen.
+ * `namen`: der Name des Vorschlags je Gefühl. `farben`: Akzent für Chips und Flächen.
  */
 export const ANLAESSE = [
   {
-    id: "geburtstag", titel: "Geburtstag", fuer: "einen besonderen Geburtstag",
+    id: "geburtstag", titel: "Geburtstag", unter: "Freude schenken", fuer: "einen besonderen Geburtstag",
     farbworte: "Apricot, Koralle und Buttergelb mit frischem Grün",
-    farben: { grund: "#fbf4ec", flaeche: "#fdebd9", akzent: "#d9774f", tinte: "#3a2c24", bild: ["#f2a77f", "#ef8a6b", "#f3d27a", "#9fb58a"] },
+    farben: { flaeche: "#fbeee3", akzent: "#b8643f" },
     absichten: [
-      { id: "freude", titel: "Eine kleine Freude machen", satz: "Ein lieber Gruß, einfach so.", groesse: "S", weil: "eine kleine Freude machen" },
-      { id: "ueberraschen", titel: "Richtig überraschen", satz: "Ein Moment, der bleibt.", groesse: "M", weil: "richtig überraschen" },
-      { id: "besonders", titel: "Etwas Besonderes schenken", satz: "Für einen unvergesslichen Tag.", groesse: "L", weil: "etwas Besonderes schenken" },
+      { id: "freude", titel: "Eine kleine Freude machen", satz: "Ein lieber Gruß, einfach so.", gefuehl: "froehlich", groesse: "S", weil: "eine kleine Freude machen" },
+      { id: "ueberraschen", titel: "Richtig überraschen", satz: "Ein besonderer Moment, der bleibt.", gefuehl: "froehlich", groesse: "M", weil: "richtig überraschen" },
+      { id: "besonders", titel: "Etwas Besonderes schenken", satz: "Für einen unvergesslichen Tag.", gefuehl: "ausdrucksstark", groesse: "L", weil: "etwas Besonderes schenken" },
     ],
     gefuehle: ALLE,
     namen: { zart: "Pfirsichhauch", froehlich: "Sonnenmoment", natuerlich: "Gartenfest", elegant: "Festtag", ausdrucksstark: "Farbenrausch" },
   },
   {
-    id: "liebe", titel: "Liebe & Jahrestag", fuer: "einen Moment zu zweit",
+    id: "liebe", titel: "Liebe & Jahrestag", unter: "Nähe zeigen", fuer: "einen Moment zu zweit",
     farbworte: "Altrosa, Bordeaux und Creme mit dunkleren Akzenten",
-    farben: { grund: "#f8f1ef", flaeche: "#f1e0dd", akzent: "#8d3b4a", tinte: "#34232a", bild: ["#d9a3a8", "#8d3b4a", "#f1e4d6", "#7e8c6c"] },
+    farben: { flaeche: "#f5e6e4", akzent: "#8e4a44" },
     absichten: [
-      { id: "naehe", titel: "Nähe zeigen", satz: "Ein Zeichen für zwischendurch.", groesse: "S", weil: "Nähe zeigen" },
-      { id: "jahrestag", titel: "Einen Jahrestag feiern", satz: "Für das, was ihr zusammen seid.", groesse: "M", weil: "einen Jahrestag feiern" },
-      { id: "gross", titel: "Etwas ganz Großes sagen", satz: "Wenn Worte nicht reichen.", groesse: "L", weil: "etwas ganz Großes sagen" },
+      { id: "naehe", titel: "Nähe zeigen", satz: "Ein Zeichen für zwischendurch.", gefuehl: "zart", groesse: "S", weil: "Nähe zeigen" },
+      { id: "jahrestag", titel: "Einen Jahrestag feiern", satz: "Für das, was ihr zusammen seid.", gefuehl: "elegant", groesse: "M", weil: "einen Jahrestag feiern" },
+      { id: "gross", titel: "Etwas ganz Großes sagen", satz: "Wenn Worte nicht reichen.", gefuehl: "ausdrucksstark", groesse: "L", weil: "etwas ganz Großes sagen" },
     ],
     gefuehle: ALLE,
     namen: { zart: "Rosenflüstern", froehlich: "Herzklopfen", natuerlich: "Wiesenliebe", elegant: "Samtabend", ausdrucksstark: "Rotglut" },
   },
   {
-    id: "hochzeit", titel: "Hochzeit", fuer: "eine Hochzeit",
+    id: "hochzeit", titel: "Hochzeit", unter: "Den großen Tag feiern", fuer: "eine Hochzeit",
     farbworte: "Elfenbein, Blush, Salbei und Champagner",
-    farben: { grund: "#f9f6f0", flaeche: "#efeadf", akzent: "#8a9a7b", tinte: "#2f2c27", bild: ["#f4ede1", "#e8c9c1", "#b7c3a5", "#e3d3b5"] },
+    farben: { flaeche: "#f1eee6", akzent: "#6f7f62" },
     absichten: [
-      { id: "gratulieren", titel: "Herzlich gratulieren", satz: "Ein Gruß zum großen Tag.", groesse: "S", weil: "herzlich gratulieren" },
-      { id: "mitfeiern", titel: "Den Tag mitfeiern", satz: "Ein Strauß, der auf die Feier passt.", groesse: "M", weil: "den Tag mitfeiern" },
-      { id: "bleibt", titel: "Ein Geschenk, das bleibt", satz: "Großzügig, für das Brautpaar.", groesse: "L", weil: "ein Geschenk machen, das bleibt" },
+      { id: "gratulieren", titel: "Herzlich gratulieren", satz: "Ein Gruß zum großen Tag.", gefuehl: "zart", groesse: "S", weil: "herzlich gratulieren" },
+      { id: "mitfeiern", titel: "Den Tag mitfeiern", satz: "Ein Strauß, der auf die Feier passt.", gefuehl: "natuerlich", groesse: "M", weil: "den Tag mitfeiern" },
+      { id: "bleibt", titel: "Ein Geschenk, das bleibt", satz: "Großzügig, für das Brautpaar.", gefuehl: "elegant", groesse: "L", weil: "ein Geschenk machen, das bleibt" },
     ],
     gefuehle: ["zart", "natuerlich", "elegant", "froehlich"],
     namen: { zart: "Schleierweiß", froehlich: "Glückstag", natuerlich: "Landpartie", elegant: "Jawort" },
   },
   {
-    id: "danke", titel: "Danke & Anerkennung", fuer: "ein Dankeschön",
+    id: "danke", titel: "Danke", unter: "Wertschätzung zeigen", fuer: "ein Dankeschön",
     farbworte: "Terrakotta, Pfirsich, Sand und Olive",
-    farben: { grund: "#f8f2ea", flaeche: "#efe2d2", akzent: "#b0633f", tinte: "#34281f", bild: ["#c77b55", "#f0bf9c", "#e3d2b4", "#8a8f5a"] },
+    farben: { flaeche: "#f4e9dc", akzent: "#9c5a38" },
     absichten: [
-      { id: "kurz", titel: "Kurz Danke sagen", satz: "Eine freundliche Geste.", groesse: "S", weil: "kurz Danke sagen" },
-      { id: "herzen", titel: "Von Herzen danken", satz: "Für etwas, das dir viel bedeutet hat.", groesse: "M", weil: "von Herzen danken" },
-      { id: "anerkennung", titel: "Große Anerkennung zeigen", satz: "Für eine besondere Leistung.", groesse: "L", weil: "große Anerkennung zeigen" },
+      { id: "kurz", titel: "Kurz Danke sagen", satz: "Eine freundliche Geste.", gefuehl: "natuerlich", groesse: "S", weil: "kurz Danke sagen" },
+      { id: "herzen", titel: "Von Herzen danken", satz: "Für etwas, das dir viel bedeutet hat.", gefuehl: "froehlich", groesse: "M", weil: "von Herzen danken" },
+      { id: "anerkennung", titel: "Große Anerkennung zeigen", satz: "Für eine besondere Leistung.", gefuehl: "elegant", groesse: "L", weil: "große Anerkennung zeigen" },
     ],
     gefuehle: ALLE,
     namen: { zart: "Leises Danke", froehlich: "Dankeschön", natuerlich: "Erntegruß", elegant: "Hochachtung", ausdrucksstark: "Großes Danke" },
   },
   {
-    id: "trost", titel: "Trost & Gedenken", fuer: "einen stillen Moment",
-    farbworte: "gebrochenes Weiß, gedecktes Grün, Mauve und sanftes Blau",
-    farben: { grund: "#f5f4f1", flaeche: "#e9e8e3", akzent: "#6f7a86", tinte: "#2e3033", bild: ["#f1efe9", "#a9b3a0", "#b8a6b6", "#a7b8c8"] },
+    id: "trost", titel: "Trost & Gedenken", unter: "In Verbundenheit", fuer: "einen stillen Moment",
+    farbworte: "gebrochenem Weiß, gedecktem Grün, Mauve und sanftem Blau",
+    farben: { flaeche: "#eeefeb", akzent: "#5f6b73" },
     absichten: [
-      { id: "anteil", titel: "Anteilnahme zeigen", satz: "Ein stilles Zeichen.", groesse: "S", weil: "Anteilnahme zeigen" },
-      { id: "verbunden", titel: "Verbundenheit ausdrücken", satz: "Du bist nicht allein.", groesse: "M", weil: "Verbundenheit ausdrücken" },
-      { id: "abschied", titel: "Einen persönlichen Abschied gestalten", satz: "Für einen Menschen, der fehlt.", groesse: "L", weil: "einen persönlichen Abschied gestalten" },
+      { id: "anteil", titel: "Anteilnahme zeigen", satz: "Ein stilles Zeichen.", gefuehl: "zart", groesse: "S", weil: "Anteilnahme zeigen" },
+      { id: "verbunden", titel: "Verbundenheit ausdrücken", satz: "Du bist nicht allein.", gefuehl: "natuerlich", groesse: "M", weil: "Verbundenheit ausdrücken" },
+      { id: "abschied", titel: "Einen persönlichen Abschied gestalten", satz: "Für einen Menschen, der fehlt.", gefuehl: "elegant", groesse: "L", weil: "einen persönlichen Abschied gestalten" },
     ],
-    // Fröhlich und ausdrucksstark passen nicht zu Trost – sie werden gar nicht erst angeboten.
+    // Fröhlich und ausdrucksstark passen nicht zu Trost – sie werden gar nicht erst angeboten, auch nicht als Variante.
     gefuehle: ["zart", "natuerlich", "elegant"],
     namen: { zart: "Stilles Licht", natuerlich: "Verbunden", elegant: "In Würde" },
     leise: true,
   },
   {
-    id: "einfach", titel: "Einfach so", fuer: "einfach so",
+    id: "einfach", titel: "Einfach so", unter: "Jemanden überraschen", fuer: "einfach so",
     farbworte: "frischen Farben der Saison",
-    farben: { grund: "#f7f3ed", flaeche: "#ebeee0", akzent: "#5e7050", tinte: "#2f2a25", bild: ["#e7c3bd", "#efc9a8", "#b9a7c9", "#9fb08e"] },
+    farben: { flaeche: "#eef0e6", akzent: "#2f4a36" },
     absichten: [
-      { id: "freude", titel: "Eine kleine Freude machen", satz: "Weil heute ein guter Tag dafür ist.", groesse: "S", weil: "eine kleine Freude machen" },
-      { id: "alltag", titel: "Den Alltag schöner machen", satz: "Für den Tisch, das Büro, das Zuhause.", groesse: "M", weil: "den Alltag schöner machen" },
-      { id: "verwoehnen", titel: "Richtig verwöhnen", satz: "Sich selbst oder jemand anderen.", groesse: "L", weil: "richtig verwöhnen" },
+      { id: "freude", titel: "Eine kleine Freude machen", satz: "Weil heute ein guter Tag dafür ist.", gefuehl: "froehlich", groesse: "S", weil: "eine kleine Freude machen" },
+      { id: "alltag", titel: "Den Alltag schöner machen", satz: "Für den Tisch, das Büro, das Zuhause.", gefuehl: "natuerlich", groesse: "M", weil: "den Alltag schöner machen" },
+      { id: "verwoehnen", titel: "Richtig verwöhnen", satz: "Sich selbst oder jemand anderen.", gefuehl: "ausdrucksstark", groesse: "L", weil: "richtig verwöhnen" },
     ],
     gefuehle: ALLE,
     namen: { zart: "Kleine Pause", froehlich: "Gute Laune", natuerlich: "Feldweg", elegant: "Ohne Anlass", ausdrucksstark: "Wildfang" },
   },
 ];
 
-export const SCHRITTE = ["anlass", "absicht", "gefuehl", "groesse"];
+/** Preisrahmen (optional) – er wählt die Größe; „egal" lässt die Botschaft entscheiden. Preise kommen aus dem Katalog. */
+export const PREISRAHMEN = [
+  { id: "klein", groesse: "S", label: (p) => `Bis ${p}` },
+  { id: "mittel", groesse: "M", label: (p) => `Etwa ${p}` },
+  { id: "gross", groesse: "L", label: () => "Darf besonders sein" },
+  { id: "egal", groesse: null, label: () => "Ist mir egal" },
+];
+
+export const SCHRITTE = ["anlass", "absicht"];
 
 export function anlass(id) {
   return ANLAESSE.find((a) => a.id === id) ?? null;
 }
 
 /**
- * Auswahl bereinigen: nur, was zum Anlass passt; alles nach einer ungültigen Stelle fällt weg.
- * → { anlass, absicht, gefuehl, groesse } mit `null` für Offenes.
+ * Auswahl bereinigen: nur, was zum Anlass passt. `preis`, `gefuehl` und `groesse` sind optional (null = abgeleitet);
+ * ein Gefühl, das der Anlass nicht anbietet, fällt weg.
  */
 export function auswahlLesen(roh) {
+  const aus = { anlass: null, absicht: null, preis: null, gefuehl: null, groesse: null };
   const a = anlass(roh?.anlass);
-  const aus = { anlass: null, absicht: null, gefuehl: null, groesse: null };
   if (!a) return aus;
   aus.anlass = a.id;
   const ab = a.absichten.find((x) => x.id === roh?.absicht);
   if (!ab) return aus;
   aus.absicht = ab.id;
-  if (!a.gefuehle.includes(roh?.gefuehl)) return aus;
-  aus.gefuehl = roh.gefuehl;
-  if (!groesse(roh?.groesse)) return aus;
-  aus.groesse = roh.groesse;
+  if (PREISRAHMEN.some((p) => p.id === roh?.preis)) aus.preis = roh.preis;
+  if (a.gefuehle.includes(roh?.gefuehl)) aus.gefuehl = roh.gefuehl;
+  if (groesse(roh?.groesse)) aus.groesse = roh.groesse;
   return aus;
 }
 
-/** Der nächste offene Schritt (0–3) oder 4 = Ergebnis. */
+/** Der nächste offene Schritt: 0 = Anlass, 1 = Botschaft, 2 = Vorschlag. */
 export function schritt(auswahl) {
-  const i = SCHRITTE.findIndex((k) => !auswahl[k]);
-  return i === -1 ? 4 : i;
+  if (!auswahl.anlass) return 0;
+  if (!auswahl.absicht) return 1;
+  return 2;
 }
 
-/** Die Größe, die Schritt 4 vorschlägt – aus der Absicht. */
-export function groessenVorschlag(auswahl) {
-  return anlass(auswahl.anlass)?.absichten.find((x) => x.id === auswahl.absicht)?.groesse ?? "M";
+/** Gefühl und Größe des Vorschlags: ausdrücklich gewählt, sonst aus Botschaft bzw. Preisrahmen. */
+export function wahl(auswahl) {
+  const a = anlass(auswahl.anlass);
+  const ab = a?.absichten.find((x) => x.id === auswahl.absicht);
+  if (!a || !ab) return null;
+  const rahmen = PREISRAHMEN.find((p) => p.id === auswahl.preis)?.groesse;
+  const g = auswahl.gefuehl ?? (a.gefuehle.includes(ab.gefuehl) ? ab.gefuehl : a.gefuehle[0]);
+  return { gefuehl: g, groesse: auswahl.groesse ?? rahmen ?? ab.groesse };
 }
 
-/** Auswahl ↔ URL-Hash (`#anlass=…&absicht=…`), damit „Zurück" im Browser einen Schritt zurück geht. */
+/** Auswahl ↔ URL-Hash, damit „Zurück" im Browser einen Schritt zurückgeht. */
 export function auswahlAusHash(hash) {
   const p = new URLSearchParams(String(hash ?? "").replace(/^#/, ""));
-  return auswahlLesen({ anlass: p.get("anlass"), absicht: p.get("absicht"), gefuehl: p.get("gefuehl"), groesse: p.get("groesse") });
+  return auswahlLesen({ anlass: p.get("anlass"), absicht: p.get("absicht"), preis: p.get("preis"), gefuehl: p.get("gefuehl"), groesse: p.get("groesse") });
 }
 
-export function hashAusAuswahl(auswahl) {
+export function hashAusAuswahl(auswahl, ansicht = null) {
   const p = new URLSearchParams();
-  for (const k of SCHRITTE) if (auswahl[k]) p.set(k, auswahl[k]);
+  for (const k of ["anlass", "absicht", "preis", "gefuehl", "groesse"]) if (auswahl?.[k]) p.set(k, auswahl[k]);
+  if (ansicht) p.set("v", ansicht);
   const s = p.toString();
   return s ? `#${s}` : "";
 }
 
-/** „fröhlich und besonders" – Wirkung in Worten für die Erklärung. */
-function wirkung(gefuehlId) {
-  return gefuehl(gefuehlId)?.name.toLowerCase() ?? "";
+function schrittIn(reihe, von, richtung, erlaubt) {
+  const liste = reihe.filter((x) => erlaubt.includes(x));
+  const i = liste.indexOf(von);
+  const j = i + richtung;
+  return i >= 0 && j >= 0 && j < liste.length ? liste[j] : null;
 }
 
 /**
- * Die florale Antwort: ein Hauptprodukt und höchstens zwei Alternativen (dasselbe Gefühl, eine Größe kleiner bzw.
- * größer). `null`, wenn die Auswahl nicht vollständig ist oder der Katalog den Strauß nicht hat.
+ * Der Vorschlag: ein Hauptprodukt, Name und Erklärung, drei Varianten für denselben Anlass (andere Gefühle, gleiche
+ * Größe) und die Nachbarn für „etwas ruhiger / wilder / größer / günstiger" (`null` = gibt es nicht).
  */
-export function ergebnis(roh, artikel) {
+export function vorschlag(roh, artikel) {
   const w = auswahlLesen(roh);
-  if (schritt(w) < 4) return null;
+  if (schritt(w) < 2) return null;
   const a = anlass(w.anlass);
   const ab = a.absichten.find((x) => x.id === w.absicht);
-  const haupt = finden(artikel, w.gefuehl, w.groesse);
+  const { gefuehl: gId, groesse: grId } = wahl(w);
+  const haupt = finden(artikel, gId, grId);
   if (!haupt) return null;
-  const i = GROESSEN.findIndex((g) => g.id === w.groesse);
-  const alternativen = [GROESSEN[i - 1], GROESSEN[i + 1]]
-    .filter(Boolean)
-    .map((g) => ({ groesse: g, artikel: finden(artikel, w.gefuehl, g.id), richtung: GROESSEN.indexOf(g) < i ? "kleiner" : "größer" }))
-    .filter((x) => x.artikel);
-  const g = gefuehl(w.gefuehl);
+  const g = gefuehl(gId);
+  const nachbar = (feld, wert) => (wert && (feld === "gefuehl" ? finden(artikel, wert, grId) : finden(artikel, gId, wert)) ? wert : null);
+  const groessen = GROESSEN.map((x) => x.id);
+  const varianten = a.gefuehle
+    .filter((x) => x !== gId)
+    .map((x) => ({ gefuehl: x, name: a.namen[x], artikel: finden(artikel, x, grId) }))
+    .filter((x) => x.artikel)
+    .slice(0, 3);
   return {
     auswahl: w,
     anlass: a,
-    name: a.namen[w.gefuehl] ?? g.name,
+    absicht: ab,
+    gefuehl: g,
+    groesse: groesse(grId),
+    name: a.namen[gId] ?? g.name,
     ueberschrift: `Dein Strauß für ${a.fuer}`,
     text: `${g.text} Gebunden in ${a.farbworte}.`,
-    erklaerung: `Das passt zu deiner Auswahl, weil du ${ab.weil} möchtest und es ${wirkung(w.gefuehl)} wirken soll.`,
-    groesse: groesse(w.groesse),
+    erklaerung: `Das passt zu deiner Auswahl, weil du ${ab.weil} möchtest und es ${g.name.toLowerCase()} wirken soll.`,
     haupt,
-    alternativen,
+    varianten,
+    ruhiger: nachbar("gefuehl", schrittIn(RUHE_REIHE, gId, -1, a.gefuehle)),
+    wilder: nachbar("gefuehl", schrittIn(RUHE_REIHE, gId, 1, a.gefuehle)),
+    groesser: nachbar("groesse", schrittIn(groessen, grId, 1, groessen)),
+    guenstiger: nachbar("groesse", schrittIn(groessen, grId, -1, groessen)),
   };
+}
+
+/** Bild zu einem Vorschlag: Elas Foto aus dem Katalog, sonst das Beispielbild der Anlasswelt. */
+export function bildPfad(anlassId, gefuehlId) {
+  return `bilder/${anlassId}_${gefuehlId}.jpg`;
 }

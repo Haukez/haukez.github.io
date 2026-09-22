@@ -14,17 +14,21 @@
   <script type="module" src="app.js"></script>
 </head>
 <body>
-  <!-- Geführte Kaufseite (docs/specs/2026-09-23-gefuehrte-kaufseite.md): der Inhalt entsteht in app.js. -->
+  <!-- Geführte Kaufseite (docs/specs/2026-09-23-gefuehrte-kaufseite.md) im Layout der Vorlage des Nutzers vom 2026-09-23.
+       Der Inhalt entsteht in app.js; keine style-Attribute (CSP). -->
   <header class="kopf">
     <a class="marke" href="#" data-ziel="start">
-      <span class="marke-name" id="shop-name">Shop</span>
+      <span class="logo" id="shop-name">Shop</span>
       <span class="marke-zeile" id="shop-unterzeile"></span>
     </a>
     <nav class="kopf-nav" aria-label="Hauptnavigation">
-      <a href="#anlass" data-ziel="anlass">Anlässe</a>
-      <a href="#uebersicht" data-ziel="uebersicht" class="leise-link">Ich weiß schon, was ich möchte</a>
+      <a class="nav" href="#anlass" data-ziel="anlass">Blumen schenken</a>
+      <a class="nav" href="#uebersicht" data-ziel="uebersicht">Für mich</a>
     </nav>
-    <button type="button" class="knopf warenkorb-knopf" id="warenkorb-knopf" hidden>Warenkorb <span id="warenkorb-zahl" class="zahl"></span></button>
+    <a class="icb warenkorb-knopf" href="#warenkorb" data-ziel="warenkorb" id="warenkorb-knopf" aria-label="Warenkorb" hidden>
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+      <span id="warenkorb-zahl" class="zahl"></span>
+    </a>
   </header>
 
   <p id="meldung" class="meldung" role="status" hidden></p>
@@ -34,41 +38,5 @@
   </main>
 
   <footer class="fuss" id="fuss"></footer>
-
-  <dialog id="produkt-dialog" class="dialog" aria-labelledby="produkt-titel">
-    <div class="dialog-inhalt">
-      <div class="dialog-bild" id="produkt-bild"></div>
-      <div class="dialog-text">
-        <h2 id="produkt-titel"></h2>
-        <p class="dialog-preis" id="produkt-preis"></p>
-        <p class="dialog-beschreibung" id="produkt-beschreibung"></p>
-        <div class="dialog-knoepfe">
-          <button type="button" class="knopf haupt" id="produkt-rein">In den Warenkorb</button>
-        </div>
-      </div>
-    </div>
-    <button type="button" class="dialog-zu" data-zu aria-label="Schließen">×</button>
-  </dialog>
-
-  <dialog id="warenkorb" class="dialog schmal" aria-labelledby="warenkorb-titel">
-    <div class="korb">
-      <h2 id="warenkorb-titel">Dein Warenkorb</h2>
-      <ul id="korb-liste" class="korb-liste"></ul>
-      <p id="korb-leer" class="ruhig">Noch nichts im Warenkorb.</p>
-      <fieldset id="korb-art" class="korb-art">
-        <legend>Wie kommt der Strauß zu dir?</legend>
-        <label><input type="radio" name="art" value="abholung" checked> Ich hole ab</label>
-        <label id="art-liefern"><input type="radio" name="art" value="lieferung"> Bitte liefern</label>
-      </fieldset>
-      <p class="korb-summe">Zusammen <strong id="korb-summe"></strong></p>
-      <p class="fuss-klein" id="korb-hinweis">Text für die Karte und einen Hinweis trägst du an der Kasse ein.</p>
-      <p id="korb-fehler" class="fehler" role="alert" hidden></p>
-      <div class="dialog-knoepfe">
-        <button type="button" class="knopf haupt" id="zur-kasse">Zur Kasse</button>
-        <button type="button" class="knopf" data-zu>Weiter stöbern</button>
-      </div>
-    </div>
-    <button type="button" class="dialog-zu" data-zu aria-label="Schließen">×</button>
-  </dialog>
 </body>
 </html>

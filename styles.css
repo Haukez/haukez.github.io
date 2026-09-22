@@ -1,0 +1,105 @@
+/* Kaufseite – warm, botanisch, entsättigt wie Compass (UI-DESIGN.md). Schriften lokal, kein Google-Abruf (Spec S2). */
+@font-face {
+  font-family: "Cormorant Garamond"; font-style: normal; font-display: swap; font-weight: 300 700;
+  src: url("fonts/cormorant-garamond-latin-wght-normal.woff2") format("woff2-variations");
+}
+@font-face {
+  font-family: "Inter"; font-style: normal; font-display: swap; font-weight: 100 900;
+  src: url("fonts/inter-latin-wght-normal.woff2") format("woff2-variations");
+}
+
+:root {
+  --papier: #f7f3ed; --papier-tief: #efe8db; --tinte: #2f2a25; --tinte-weich: #6f675b; --leise: #8f8678;
+  --linie: #e8e1d3; --salbei: #a8b59a; --moos: #5e7050; --salbei-hauch: #e9eddf; --rose: #b47f79;
+  --radius: 16px;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--papier); color: var(--tinte);
+  font: 16px/1.55 "Inter", system-ui, sans-serif;
+  background-image: radial-gradient(1200px 500px at 10% -10%, var(--salbei-hauch), transparent 70%);
+  background-attachment: fixed;
+}
+h1, h2 { font-family: "Cormorant Garamond", Georgia, serif; font-weight: 600; letter-spacing: .01em; margin: 0; }
+a { color: var(--moos); }
+
+.kopf { display: flex; align-items: center; gap: 14px; max-width: 1100px; margin: 0 auto; padding: 28px 20px 12px; }
+.zweig { width: 42px; height: 42px; color: var(--moos); flex: none; }
+.kopf-text { flex: 1; min-width: 0; }
+.kopf h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); line-height: 1.1; }
+.kopf p { margin: 2px 0 0; color: var(--tinte-weich); }
+
+.inhalt { max-width: 1100px; margin: 0 auto; padding: 12px 20px 48px; }
+.ruhig { color: var(--leise); font-style: italic; }
+
+.knopf {
+  font: inherit; border: 1.5px solid var(--moos); color: var(--moos); background: transparent;
+  padding: 9px 18px; border-radius: 999px; cursor: pointer;
+}
+.knopf:hover { background: var(--salbei-hauch); }
+.knopf.haupt { background: var(--moos); color: #fff; }
+.knopf.haupt:hover { background: #4e5f42; }
+.knopf[disabled] { opacity: .45; cursor: not-allowed; }
+
+.raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 22px; }
+.karte { background: #fffdf9; border: 1px solid var(--linie); border-radius: var(--radius); overflow: hidden; }
+.karte-knopf { all: unset; display: block; width: 100%; cursor: pointer; }
+.karte-knopf:focus-visible { outline: 2px solid var(--moos); outline-offset: 2px; }
+.karte-bild { aspect-ratio: 4 / 5; background: var(--papier-tief); overflow: hidden; }
+.karte-bild img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s ease; }
+.karte:hover .karte-bild img { transform: scale(1.03); }
+.karte-titel { font-size: 1.35rem; padding: 12px 16px 0; }
+.karte-preis { margin: 2px 16px 16px; color: var(--tinte-weich); }
+
+.dialog { border: none; border-radius: 20px; padding: 0; max-width: min(880px, calc(100vw - 32px)); width: 100%; background: #fffdf9; color: var(--tinte); }
+.dialog::backdrop { background: rgb(47 42 37 / .35); }
+.dialog-inhalt { display: grid; grid-template-columns: 1fr 1fr; }
+.dialog-bild { background: var(--papier-tief); }
+.dialog-bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dialog-text { padding: 28px; display: flex; flex-direction: column; gap: 12px; }
+.dialog-text h2 { font-size: 1.9rem; }
+.dialog-preis { margin: 0; font-size: 1.1rem; color: var(--tinte-weich); }
+.dialog-knoepfe { display: flex; gap: 10px; flex-wrap: wrap; }
+.dialog-beschreibung { color: var(--tinte-weich); font-size: .95rem; }
+.dialog-zu { position: absolute; top: 10px; right: 12px; border: none; background: rgb(255 253 249 / .85); border-radius: 999px; width: 36px; height: 36px; font-size: 22px; cursor: pointer; color: var(--tinte); }
+
+.bild-leer { width: 100%; height: 100%; min-height: 160px; background:
+  radial-gradient(circle at 50% 42%, var(--salbei-hauch) 0 22%, transparent 23%), var(--papier-tief); }
+.dialog-bild .bild-leer { min-height: 320px; }
+
+.zahl:not(:empty) { display: inline-block; min-width: 1.5em; margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--moos); color: #fff; font-size: .85em; }
+.meldung { max-width: 1100px; margin: 4px auto 0; padding: 10px 16px; border-radius: 12px; background: var(--salbei-hauch); color: var(--moos); }
+.meldung[hidden] { display: none; }
+
+.dialog.schmal { max-width: min(520px, calc(100vw - 32px)); }
+.korb { padding: 28px; display: flex; flex-direction: column; gap: 12px; }
+.korb h2 { font-size: 1.8rem; }
+.korb-liste { list-style: none; margin: 0; padding: 0; }
+.korb-zeile { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px dashed var(--linie); }
+.korb-menge { display: inline-flex; align-items: center; gap: 8px; }
+.korb-preis { color: var(--tinte-weich); min-width: 5.5em; text-align: right; }
+.mini { font: inherit; width: 30px; height: 30px; border-radius: 999px; border: 1.5px solid var(--moos); background: transparent; color: var(--moos); cursor: pointer; line-height: 1; }
+.mini[disabled] { opacity: .4; cursor: not-allowed; }
+.korb-art { border: 1px solid var(--linie); border-radius: 12px; padding: 10px 14px; display: flex; gap: 18px; flex-wrap: wrap; }
+.korb-art[hidden], [hidden] { display: none !important; }
+.korb-art legend { padding: 0 6px; color: var(--tinte-weich); font-size: .9rem; }
+.korb-summe { margin: 0; font-size: 1.1rem; }
+.fehler { margin: 0; padding: 8px 12px; border-radius: 10px; background: #f6e7e4; color: #8e3b30; border-left: 3px solid #b0493a; }
+
+.bald { text-align: center; padding: 72px 12px; }
+.bald h2 { font-size: 2.2rem; }
+.bald p { color: var(--tinte-weich); }
+
+.fuss { max-width: 1100px; margin: 0 auto; padding: 18px 20px 40px; border-top: 1px solid var(--linie); }
+.fuss-links { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.fuss-klein { color: var(--leise); font-size: .85rem; }
+
+@media (max-width: 640px) {
+  .kopf { padding-top: 18px; }
+  .raster { grid-template-columns: 1fr; }
+  .dialog-inhalt { grid-template-columns: 1fr; }
+  .dialog-text, .korb { padding: 20px; }
+  .korb-zeile { grid-template-columns: 1fr auto; }
+  .korb-preis { grid-column: 2; }
+}

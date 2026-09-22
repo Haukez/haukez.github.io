@@ -1,15 +1,75 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + Svelte</title>
-    <script type="module" crossorigin src="/assets/index-49c3dbcc.js"></script>
-    <link rel="stylesheet" href="/assets/index-9ea02431.css">
-  </head>
-  <body>
-    <div id="app"></div>
-    
-  </body>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Erst beim Start entfernen – wenn Shop und Rechtstexte stehen (Spec 2026-09-22-shop-seite S3). -->
+  <meta name="robots" content="noindex">
+  <!-- Nur eigene Dateien; Bilder und Katalog kommen vom eigenen Worker (https). Bezahlt wird bei Stripe (Weiterleitung). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' https: http://127.0.0.1:* http://localhost:* data:; connect-src https: http://127.0.0.1:* http://localhost:*; form-action 'none'; base-uri 'none'; object-src 'none'">
+  <title>Shop</title>
+  <meta name="description" content="Sträuße und Gestecke online bestellen.">
+  <link rel="stylesheet" href="styles.css">
+  <script src="config.js"></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="kopf">
+    <svg class="zweig" viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M24 44 C24 30 22 18 14 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M21 30 C14 29 10 24 9 18 C15 19 19 23 21 30Z" fill="currentColor" opacity=".55"/>
+      <path d="M23 22 C29 20 33 15 33 9 C27 11 24 16 23 22Z" fill="currentColor" opacity=".45"/>
+      <path d="M18 14 C13 12 11 8 11 4 C15 6 17 10 18 14Z" fill="currentColor" opacity=".35"/>
+    </svg>
+    <div class="kopf-text">
+      <h1 id="shop-name">Shop</h1>
+      <p id="shop-unterzeile"></p>
+    </div>
+    <button type="button" class="knopf warenkorb-knopf" id="warenkorb-knopf" hidden>Warenkorb <span id="warenkorb-zahl" class="zahl"></span></button>
+  </header>
+
+  <p id="meldung" class="meldung" role="status" hidden></p>
+
+  <main id="inhalt" class="inhalt">
+    <p class="ruhig">Einen Moment …</p>
+  </main>
+
+  <footer class="fuss" id="fuss"></footer>
+
+  <dialog id="produkt-dialog" class="dialog" aria-labelledby="produkt-titel">
+    <div class="dialog-inhalt">
+      <div class="dialog-bild" id="produkt-bild"></div>
+      <div class="dialog-text">
+        <h2 id="produkt-titel"></h2>
+        <p class="dialog-preis" id="produkt-preis"></p>
+        <p class="dialog-beschreibung" id="produkt-beschreibung"></p>
+        <div class="dialog-knoepfe">
+          <button type="button" class="knopf haupt" id="produkt-rein">In den Warenkorb</button>
+        </div>
+      </div>
+    </div>
+    <button type="button" class="dialog-zu" data-zu aria-label="Schließen">×</button>
+  </dialog>
+
+  <dialog id="warenkorb" class="dialog schmal" aria-labelledby="warenkorb-titel">
+    <div class="korb">
+      <h2 id="warenkorb-titel">Dein Warenkorb</h2>
+      <ul id="korb-liste" class="korb-liste"></ul>
+      <p id="korb-leer" class="ruhig">Noch nichts im Warenkorb.</p>
+      <fieldset id="korb-art" class="korb-art">
+        <legend>Wie kommt der Strauß zu dir?</legend>
+        <label><input type="radio" name="art" value="abholung" checked> Ich hole ab</label>
+        <label id="art-liefern"><input type="radio" name="art" value="lieferung"> Bitte liefern</label>
+      </fieldset>
+      <p class="korb-summe">Zusammen <strong id="korb-summe"></strong></p>
+      <p class="fuss-klein" id="korb-hinweis">Wunschtermin und Text für die Karte trägst du an der Kasse ein.</p>
+      <p id="korb-fehler" class="fehler" role="alert" hidden></p>
+      <div class="dialog-knoepfe">
+        <button type="button" class="knopf haupt" id="zur-kasse">Zur Kasse</button>
+        <button type="button" class="knopf" data-zu>Weiter stöbern</button>
+      </div>
+    </div>
+    <button type="button" class="dialog-zu" data-zu aria-label="Schließen">×</button>
+  </dialog>
+</body>
 </html>

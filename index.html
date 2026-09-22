@@ -8,29 +8,28 @@
   <!-- Nur eigene Dateien; Bilder und Katalog kommen vom eigenen Worker (https). Bezahlt wird bei Stripe (Weiterleitung). -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' https: http://127.0.0.1:* http://localhost:* data:; connect-src https: http://127.0.0.1:* http://localhost:*; form-action 'none'; base-uri 'none'; object-src 'none'">
   <title>Shop</title>
-  <meta name="description" content="Sträuße und Gestecke online bestellen.">
+  <meta name="description" content="Blumen für besondere Momente – sag, was du ausdrücken möchtest, und finde den passenden Strauß.">
   <link rel="stylesheet" href="styles.css">
   <script src="config.js"></script>
   <script type="module" src="app.js"></script>
 </head>
 <body>
+  <!-- Geführte Kaufseite (docs/specs/2026-09-23-gefuehrte-kaufseite.md): der Inhalt entsteht in app.js. -->
   <header class="kopf">
-    <svg class="zweig" viewBox="0 0 48 48" aria-hidden="true">
-      <path d="M24 44 C24 30 22 18 14 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-      <path d="M21 30 C14 29 10 24 9 18 C15 19 19 23 21 30Z" fill="currentColor" opacity=".55"/>
-      <path d="M23 22 C29 20 33 15 33 9 C27 11 24 16 23 22Z" fill="currentColor" opacity=".45"/>
-      <path d="M18 14 C13 12 11 8 11 4 C15 6 17 10 18 14Z" fill="currentColor" opacity=".35"/>
-    </svg>
-    <div class="kopf-text">
-      <h1 id="shop-name">Shop</h1>
-      <p id="shop-unterzeile"></p>
-    </div>
+    <a class="marke" href="#" data-ziel="start">
+      <span class="marke-name" id="shop-name">Shop</span>
+      <span class="marke-zeile" id="shop-unterzeile"></span>
+    </a>
+    <nav class="kopf-nav" aria-label="Hauptnavigation">
+      <a href="#anlass" data-ziel="anlass">Anlässe</a>
+      <a href="#uebersicht" data-ziel="uebersicht" class="leise-link">Ich weiß schon, was ich möchte</a>
+    </nav>
     <button type="button" class="knopf warenkorb-knopf" id="warenkorb-knopf" hidden>Warenkorb <span id="warenkorb-zahl" class="zahl"></span></button>
   </header>
 
   <p id="meldung" class="meldung" role="status" hidden></p>
 
-  <main id="inhalt" class="inhalt">
+  <main id="inhalt" class="inhalt" tabindex="-1">
     <p class="ruhig">Einen Moment …</p>
   </main>
 
@@ -62,7 +61,7 @@
         <label id="art-liefern"><input type="radio" name="art" value="lieferung"> Bitte liefern</label>
       </fieldset>
       <p class="korb-summe">Zusammen <strong id="korb-summe"></strong></p>
-      <p class="fuss-klein" id="korb-hinweis">Wunschtermin und Text für die Karte trägst du an der Kasse ein.</p>
+      <p class="fuss-klein" id="korb-hinweis">Text für die Karte und einen Hinweis trägst du an der Kasse ein.</p>
       <p id="korb-fehler" class="fehler" role="alert" hidden></p>
       <div class="dialog-knoepfe">
         <button type="button" class="knopf haupt" id="zur-kasse">Zur Kasse</button>

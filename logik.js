@@ -47,15 +47,23 @@ export function rechtlicheLinks(rechtliches) {
  *  - „bald": kein Worker eingetragen oder Rechtstexte unvollständig – dann keine einzige Anfrage an den Worker.
  *  - „vorschau": `?vorschau=http://127.0.0.1:<port>` – nur ein lokaler Worker, zum Testen (Rechtstexte egal).
  *  - „shop": Worker und alle fünf Rechtstexte stehen.
+ *  - „demo": sonst, wenn config.js `demo: true` setzt – alle Produkte als Vorschau, Kasse gesperrt, keine Anfrage
+ *    (Spec 2026-09-23-wochenatelier E2). Vorrang: Vorschau vor Shop vor Demo vor „bald".
  */
 export function modus(konfig, suche = "") {
   const p = new URLSearchParams(suche);
   const vorschau = workerAdresse(p.get("vorschau"));
   if (vorschau && vorschau.startsWith("http://")) return { art: "vorschau", worker: vorschau };
   const worker = workerAdresse(konfig?.worker);
-  if (!worker) return { art: "bald", grund: "worker" };
-  if (rechtlicheLinks(konfig?.rechtliches).length < RECHTLICHES.length) return { art: "bald", grund: "rechtliches" };
+  const demo = konfig?.demo === true;
+  if (!worker) return demo ? { art: "demo" } : { art: "bald", grund: "worker" };
+  if (rechtlicheLinks(konfig?.rechtliches).length < RECHTLICHES.length) return demo ? { art: "demo" } : { art: "bald", grund: "rechtliches" };
   return { art: "shop", worker };
+}
+
+/** Darf „Zur Kasse" überhaupt fragen? Nur mit Worker – in der Demo nie (WA7). */
+export function kasseErlaubt(m) {
+  return (m?.art === "shop" || m?.art === "vorschau") && typeof m.worker === "string";
 }
 
 /** 1250 → „12,50 €" (deutsches Format, geschütztes Leerzeichen vor dem Zeichen). */

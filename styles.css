@@ -507,10 +507,51 @@ body:not([data-ansicht="start"]) .kopf { transition: border-color .25s ease, bac
 .kopf .marke { justify-self: start; }
 .kopf .kopf-nav { grid-column: 2; }
 .kopf .warenkorb-knopf { grid-column: 3; justify-self: end; }
-/* WhatsApp für individuelle Angebote (Nutzer 2026-09-23) – ruhig, in der Farbe der Welt, kein Markenlogo. */
-.eigenes { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; margin-top: 28px; padding: 20px 22px; border-radius: 12px; border: 1px dashed var(--welt-akzent, #2F4A36); background: var(--welt-karte, #FFFDF9); }
-.eigenes h3 { margin: 0 0 4px; font-size: 24px; }
-.eigenes p { margin: 0; max-width: 520px; }
-.wa-knopf { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+/* WhatsApp für individuelle Angebote (Nutzer 2026-09-23) – Kasten „Etwas ganz Eigenes?" nach seinem Entwurf:
+   ruhiges Waldgrün unabhängig von der Welt, links Text und drei Punkte, rechts Zeichen, Gruß und Knopf. */
 .wa-link { display: inline-flex; align-items: center; gap: 6px; }
-.wa-link .ic, .wa-knopf .ic { flex: none; }
+.wa-link .ic { flex: none; }
+.eigenes { --e-gruen: #2E5E3E; --e-gruen-dunkel: #234A30; --e-hell: #FBF7EE; display: grid; gap: 24px; margin-top: 32px; padding: 24px 22px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--e-gruen) 45%, transparent); background: var(--e-hell); color: var(--tinte); box-shadow: 0 10px 30px rgb(43 38 34 / .06); }
+.eigenes-vorzeile { margin: 0 0 6px; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: var(--e-gruen); }
+.eigenes h3 { margin: 0 0 10px; font-size: clamp(32px, 4.6vw, 44px); font-weight: 500; line-height: 1.05; }
+.eigenes-text { margin: 0; font-size: 18px; line-height: 1.5; max-width: 520px; }
+.eigenes-punkte { list-style: none; margin: 20px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 14px 26px; }
+.eigenes-punkte li { display: flex; align-items: center; gap: 10px; font-size: 15px; line-height: 1.3; max-width: 150px; }
+.eigenes-haken { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: var(--e-gruen); color: #FFFFFF; }
+.eigenes-haken .ic { width: 16px; height: 16px; stroke-width: 2.4; }
+.eigenes-rechts { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.eigenes-bild { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; max-width: 320px; min-height: 120px; }
+.eigenes-zweig { position: absolute; left: 6px; top: 26px; width: 92px; height: 72px; fill: color-mix(in srgb, var(--e-gruen) 22%, #FFFFFF); stroke: color-mix(in srgb, var(--e-gruen) 55%, #FFFFFF); stroke-width: 1.4; stroke-linecap: round; }
+.eigenes-kreis { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 104px; height: 104px; border-radius: 50%; background: var(--e-gruen); color: #FFFFFF; box-shadow: 0 8px 20px rgb(35 74 48 / .25); }
+.eigenes-kreis .wa-zeichen { width: 54px; height: 54px; fill: currentColor; }
+.eigenes-gruss { position: absolute; right: -4px; top: -6px; font-size: 22px; line-height: 1.05; color: var(--e-gruen); text-align: center; transform: rotate(-8deg); }
+.eigenes-pfeil { position: absolute; right: 8px; top: 46px; width: 56px; height: 56px; fill: none; stroke: var(--e-gruen); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.eigenes-herz { stroke-width: 1.4; }
+.eigenes-knopf { display: inline-flex; align-items: center; justify-content: center; gap: 12px; width: 100%; max-width: 340px; min-height: 60px; padding: 0 22px; border-radius: 12px; background: var(--e-gruen); color: #FFFFFF; font-size: 19px; text-decoration: none; box-shadow: 0 8px 20px rgb(35 74 48 / .22); transition: background-color .2s ease; }
+.eigenes-knopf:hover { background: var(--e-gruen-dunkel); color: #FFFFFF; }
+.eigenes-knopf:focus-visible { outline: 3px solid color-mix(in srgb, var(--e-gruen) 45%, transparent); outline-offset: 3px; }
+.eigenes-knopf .wa-zeichen { width: 26px; height: 26px; fill: currentColor; flex: none; }
+.eigenes-knopf .ic { width: 18px; height: 18px; flex: none; margin-left: auto; }
+.eigenes-hinweis { margin: 0; font-size: 14px; color: var(--leise); text-align: center; }
+@media (min-width: 900px) {
+  .eigenes { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: center; gap: 0; padding: 30px 34px; }
+  .eigenes-links { padding-right: 32px; }
+  .eigenes-rechts { padding-left: 32px; border-left: 1px solid color-mix(in srgb, var(--e-gruen) 22%, transparent); }
+}
+@media (max-width: 520px) {
+  .eigenes-gruss { font-size: 19px; right: -8px; }
+  .eigenes-zweig { left: -4px; }
+}
+/* Feinschliff nach Messung (960 px): Gruß überlappte den Kreis, Knopftext brach um, Punkte in zwei Reihen. */
+.eigenes-bild { justify-content: flex-start; min-height: 128px; }
+.eigenes-bild .eigenes-kreis { margin-left: calc(38% - 52px); }
+.eigenes-zweig { left: calc(38% - 142px); }
+.eigenes-gruss { right: 0; top: -2px; width: 132px; font-size: 20px; }
+.eigenes-pfeil { right: 30px; top: 50px; width: 50px; height: 50px; }
+.eigenes-knopf { gap: 10px; padding: 0 18px; font-size: 18px; white-space: nowrap; }
+.eigenes-knopf span { flex: 1; text-align: left; }
+@media (min-width: 600px) {
+  .eigenes-punkte { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; }
+  .eigenes-punkte li { max-width: none; font-size: 14px; }
+}
+.eigenes { overflow: hidden; }

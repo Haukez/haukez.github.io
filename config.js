@@ -37,7 +37,8 @@ window.SHOP_KONFIG = {
    * `whatsapp`: Nummer international, z. B. "+49 170 1234567" – dann können Kundinnen per WhatsApp ein individuelles
    * Angebot anfragen (Anlass-Seite, Vorschlag, Produkt, Fuß), auch in der Vorschau. Leer = kein WhatsApp-Knopf.
    */
-  kontakt: { email: "", telefon: "", whatsapp: "" },
+  // TESTNUMMER (Nutzer 2026-09-23: „lass die testnummer drin“) – vor dem Start durch die echte Nummer ersetzen.
+  kontakt: { email: "", telefon: "", whatsapp: "+49 170 0000000" },
   /**
    * Ela auf der Startseite: ein eigenes Foto (Datei neben dieser, z. B. "ela.jpg") und drei Zeilen von ihr. Erst wenn
    * beides gesetzt ist, erscheint der Abschnitt (Spec 2026-09-23-kaufseite-schaerfen § 2).

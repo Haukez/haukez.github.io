@@ -58,6 +58,6 @@ python -m http.server 4321 --directory shop
    Settings › Pages „GitHub Actions" wählen. Der Workflow `.github/workflows/pages.yml` veröffentlicht dann bei jedem
    Push auf `main`.
 
-Schriften: Allura, Cormorant Garamond und Source Serif 4 liegen lokal in `fonts/` (SIL OFL, Lizenztexte daneben). Es
+Schriften: Allura, Caveat (Gruß im WhatsApp-Kasten), Cormorant Garamond und Source Serif 4 liegen lokal in `fonts/` (SIL OFL, Lizenztexte daneben). Es
 gibt keinen Abruf bei Google. `inter-latin-wght-normal.woff2` liegt noch dort, wird aber von `styles.css` nicht
 geladen.

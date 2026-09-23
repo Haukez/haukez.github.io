@@ -555,3 +555,56 @@ body:not([data-ansicht="start"]) .kopf { transition: border-color .25s ease, bac
   .eigenes-punkte li { max-width: none; font-size: 14px; }
 }
 .eigenes { overflow: hidden; }
+/* „Etwas ganz Eigenes?" rechts – zweite Runde nach dem Entwurf des Nutzers: Zweig mit Salbeiblättern hinter dem Kreis,
+   Gruß in Handschrift (Caveat, lokal) auf zwei Zeilen, langer geschwungener Pfeil zum Knopf, Herz daneben. */
+@font-face { font-family: "Caveat"; font-style: normal; font-weight: 400 700; font-display: swap; src: url("fonts/caveat-latin-wght-normal.woff2") format("woff2-variations"); }
+.eigenes-bild { justify-content: center; min-height: 170px; max-width: 360px; }
+.eigenes-bild .eigenes-kreis { margin-left: 0; margin-right: 92px; width: 116px; height: 116px; z-index: 1; }
+.eigenes-kreis .wa-zeichen { width: 62px; height: 62px; }
+.eigenes-zweig { left: calc(50% - 46px - 120px); top: 0; width: 240px; height: 170px; z-index: 0; fill: none; stroke: none; }
+.eigenes-zweig .stiel { fill: none; stroke: #9DB596; stroke-width: 1.6; stroke-linecap: round; }
+.eigenes-zweig use.t1 { fill: #C3D3BC; }
+.eigenes-zweig use.t2 { fill: #A9C0A1; }
+.eigenes-gruss { font-family: "Caveat", "Segoe Script", cursive; font-weight: 500; font-size: 24px; line-height: 1.05; width: auto; white-space: nowrap; text-align: left; right: 8px; top: 6px; transform: rotate(-8deg); color: var(--e-gruen); }
+.eigenes-herz { position: absolute; right: -6px; top: 58px; width: 22px; height: 20px; fill: none; stroke: var(--e-gruen); stroke-width: 1.5; stroke-linejoin: round; }
+.eigenes-pfeil { right: 34px; top: 66px; width: 62px; height: 72px; }
+.eigenes-knopf { min-height: 64px; font-size: 20px; max-width: 380px; border-radius: 14px; }
+.eigenes-knopf .wa-zeichen { width: 30px; height: 30px; }
+@media (max-width: 520px) {
+  .eigenes-bild .eigenes-kreis { margin-right: 84px; width: 100px; height: 100px; }
+  .eigenes-kreis .wa-zeichen { width: 54px; height: 54px; }
+  .eigenes-zweig { left: calc(50% - 42px - 105px); top: 10px; width: 210px; height: 150px; }
+  .eigenes-gruss { font-size: 21px; right: 2px; }
+  .eigenes-herz { right: -2px; top: 52px; }
+  .eigenes-pfeil { right: 30px; top: 60px; width: 54px; height: 64px; }
+}
+/* Gruß überlappte den Kreis um 40 px (gemessen 960 px, rechte Spalte 301 px): Spalten gleich breit, Kreis weiter links. */
+@media (min-width: 900px) { .eigenes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.eigenes-bild .eigenes-kreis { margin-right: 120px; }
+.eigenes-zweig { left: calc(50% - 60px - 120px); }
+.eigenes-gruss { font-size: 22px; }
+@media (max-width: 520px) {
+  .eigenes-bild .eigenes-kreis { margin-right: 100px; }
+  .eigenes-zweig { left: calc(50% - 50px - 105px); }
+  .eigenes-gruss { font-size: 18px; }
+}
+/* Kopf zwischen 521 und 899 px: die Marke überlappte „Strauß finden" (Spalte 1fr schmaler als die Marke). Seitenspalten
+   nie schmaler als ihr Inhalt; Unterzeile überall gleich breit, damit das Menü auf Start und Unterseiten gleich steht. */
+.kopf { grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr); column-gap: 16px; }
+.marke-zeile, body[data-ansicht="start"] .marke-zeile { width: 130px; }
+/* Schmale Handys: die rechte Spalte wurde durch den nicht umbrechenden Knopftext 324 px breit (Kasten 284 px, gemessen
+   bei 320 px) und der Gruß ragte heraus. Spalten dürfen schrumpfen; der Knopf wird unter 400 px kompakter. */
+.eigenes { grid-template-columns: minmax(0, 1fr); }
+.eigenes > * { min-width: 0; }
+@media (min-width: 900px) { .eigenes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+@media (max-width: 400px) {
+  .eigenes { padding: 22px 16px; }
+  .eigenes-knopf { font-size: 17px; padding: 0 14px; gap: 8px; }
+  .eigenes-knopf .wa-zeichen { width: 24px; height: 24px; }
+  .eigenes-bild .eigenes-kreis { margin-right: 96px; width: 92px; height: 92px; }
+  .eigenes-kreis .wa-zeichen { width: 50px; height: 50px; }
+  .eigenes-zweig { left: calc(50% - 48px - 97px); top: 16px; width: 194px; height: 138px; }
+  .eigenes-gruss { font-size: 17px; right: 0; }
+  .eigenes-herz { right: 0; top: 50px; width: 18px; height: 16px; }
+  .eigenes-pfeil { right: 26px; top: 56px; width: 48px; height: 58px; }
+}

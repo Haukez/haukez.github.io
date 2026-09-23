@@ -112,12 +112,15 @@ function meldung(text, kurz = false) {
  * Die Welt eines Bildschirms (Master-Prompt § 4/§ 5): Farben aus Anlass × Gefühl über das CSSOM, dazu Kennzeichen für
  * Tempo und Typografie (`data-welt`, `data-gefuehl`, `.leise`). Ohne Anlass neutral.
  */
-function welt(anlassId, gefuehlId, staerke = 1) {
+function welt(anlassId, gefuehlId, staerke = 1, nurFarben = false) {
   const f = weltFarben(anlassId, gefuehlId, staerke);
   const r = document.documentElement.style;
   for (const [k, v] of [["grund", f.grund], ["flaeche", f.flaeche], ["karte", f.karte], ["akzent", f.akzent],
     ["akzent-text", f.akzentText], ["akzent-hauch", f.akzentHauch], ["tinte", f.tinte]]) r.setProperty(`--welt-${k}`, v);
   r.setProperty("--bild-filter", f.bild);
+  // Die Vorschau beim Überfahren ändert nur Farben – Kennzeichen würden Typografie und Einblendung umschalten und
+  // die ganze Seite springen lassen (gemeldet vom Nutzer 2026-09-23).
+  if (nurFarben) return;
   document.body.dataset.welt = anlass(anlassId)?.id ?? "";
   document.body.dataset.gefuehl = gefuehlId ?? "";
   document.body.classList.toggle("leise", Boolean(anlass(anlassId)?.leise));
@@ -562,6 +565,8 @@ function zeichnen() {
     inhalt.classList.remove("einblenden");
     void inhalt.offsetWidth;
     inhalt.classList.add("einblenden");
+    // Nach dem Einblenden die Klasse lösen – sonst startet jede spätere Regeländerung die Animation neu.
+    inhalt.addEventListener("animationend", () => inhalt.classList.remove("einblenden"), { once: true });
     window.scrollTo({ top: 0, behavior: "auto" });
     inhalt.focus({ preventScroll: true });
   }
@@ -742,7 +747,7 @@ async function laden() {
   const vorschau = (ev) => {
     if (zustand().ansicht !== "anlass") return;
     const k = ev.target.closest?.("[data-welt-vorschau]");
-    welt(k ? k.dataset.weltVorschau : null, null, STAERKE.vorschau);
+    welt(k ? k.dataset.weltVorschau : null, null, STAERKE.vorschau, true);
   };
   document.addEventListener("pointerover", vorschau);
   document.addEventListener("focusin", vorschau);

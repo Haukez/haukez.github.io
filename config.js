@@ -1,9 +1,9 @@
 // Die einzige Stelle zum Einstellen (Specs docs/specs/2026-09-22-shop-seite.md S1, 2026-09-22-stripe-statt-shopify.md § 6,
-// 2026-09-23-wochenatelier.md § 2.4). Solange `worker` leer ist oder ein Rechtstext fehlt, fragt die Seite nichts ab:
-// mit `demo: true` zeigt sie die Vorschau (Kasse gesperrt), sonst „Der Shop öffnet bald".
+// 2026-09-23-wochenatelier.md § 2.4). Ohne `worker` fragt die Seite nichts ab. Fehlt ein Rechtstext, fragt sie nur den
+// Katalog: meldet der Worker Stripe-Testmodus, öffnet die Kasse für Testkarten, sonst Vorschau (`demo: true`) bzw. „bald".
 window.SHOP_KONFIG = {
   /** Adresse des eigenen Cloudflare-Workers, z. B. "https://compass-backend.<name>.workers.dev". Leer = Shop zu. */
-  worker: "",
+  worker: "https://compass-backend.haukemietzner.workers.dev",
   /** Vorschau mit allen Produkten (15 Sträuße und die Grußkarte) – bestellen geht darin nie (Entscheidung E2, 2026-09-23). */
   demo: true,
   /** Name und Unterzeile oben auf der Seite – wie im Entwurf des Nutzers vom 2026-09-23 (Marke offen, Konzept O9). */

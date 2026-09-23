@@ -11,7 +11,7 @@ import {
   anlass, ANLAESSE, auswahlAusHash, bildPfad, hashAusAuswahl, hashAusStrauss, PREISRAHMEN, schritt, strauss, straussAusHash, vorschlag, wahl,
 } from "./beratung.js";
 import {
-  anfrageText, kassenAnfrage, kasseErlaubt, korbAnzahl, korbBereinigen, korbHinzu, korbLesen, korbSetzen, korbSumme, lieferDaten,
+  anfrageText, kassenAnfrage, kasseErlaubt, modusNachKatalog, korbAnzahl, korbBereinigen, korbHinzu, korbLesen, korbSetzen, korbSumme, lieferDaten,
   lieferText, MENGE_MAX, modus, preisText, rechtlicheLinks, rueckkehr, whatsappLink,
 } from "./logik.js";
 import {
@@ -21,7 +21,7 @@ import { sprache, STAERKE, weltFarben } from "./welt.js";
 import { liefertermin, tagText, wocheLesen, wochenWahl } from "./woche.js";
 
 const konfig = window.SHOP_KONFIG ?? {};
-const m = modus(konfig, location.search);
+let m = modus(konfig, location.search);
 const $ = (id) => document.getElementById(id);
 const SPEICHER = "shop-warenkorb";
 const NAMEN = "shop-namen";
@@ -250,6 +250,7 @@ function bildHtml(b, alt, breite = 1152, hoehe = 1600) {
 
 // ------------------------------------------------------------------ Bausteine
 function banner() {
+  if (m.art === "test") return `<p class="demo-banner test-banner" role="note">Testmodus – bezahlt wird nur mit Stripe-Testkarten (4242 4242 4242 4242), kein echtes Geld.</p>`;
   return m.art === "demo" ? `<p class="demo-banner" role="note">Vorschau – so wird der Shop aussehen. Bestellen geht noch nicht.</p>` : "";
 }
 
@@ -296,7 +297,7 @@ function startHtml() {
   return `<section class="buehne">
       <img class="buehne-bild" src="bilder/held_breit.jpg" alt="Wiesenstrauß mit rosa Dahlien und Schmuckkörbchen in einer Keramikkanne auf einem Holztisch" width="1648" height="1024">
       <div class="buehne-inhalt">
-        ${m.art === "demo" ? `<p class="buehne-hinweis" role="note">Vorschau – bestellen geht noch nicht</p>` : ""}
+        ${m.art === "demo" ? `<p class="buehne-hinweis" role="note">Vorschau – bestellen geht noch nicht</p>` : m.art === "test" ? `<p class="buehne-hinweis" role="note">Testmodus – nur Testkarten, kein echtes Geld</p>` : ""}
         <h1 class="d buehne-satz">Was sollen die Blumen sagen?</h1>
         <p class="buehne-unter">Sag mir, was du ausdrücken möchtest – ich finde den passenden Strauß für dich.</p>
         <div class="buehne-knoepfe">
@@ -629,7 +630,7 @@ function warenkorbHtml() {
           <li>${ic("blatt")}Frisch gebunden – ${esc(terminSatz(a))}</li>
         </ul>
         ${rechtlicheLinks(konfig.rechtliches).length ? `<p class="klein rechtliches">${rechtlicheLinks(konfig.rechtliches).map((l) => `<a href="${esc(l.url)}" rel="noopener">${esc(l.titel)}</a>`).join(" · ")}</p>` : ""}
-        ${m.art === "demo" ? `<p class="klein">Das ist eine Vorschau – hier wird nichts bestellt.</p>` : ""}
+        ${m.art === "demo" ? `<p class="klein">Das ist eine Vorschau – hier wird nichts bestellt.</p>` : m.art === "test" ? `<p class="klein">Testmodus: Karte 4242 4242 4242 4242, ein Datum in der Zukunft, beliebige Prüfziffer.</p>` : ""}
       </aside>
     </div>`;
 }
@@ -1029,6 +1030,7 @@ function fuss() {
   const hinweis = m.art === "bald" ? "Impressum und Datenschutz folgen mit dem Start des Shops."
     : m.art === "demo" ? "Vorschau – bestellen geht noch nicht. Impressum und Datenschutz folgen mit dem Start des Shops."
     : m.art === "vorschau" ? "Vorschau mit einem lokalen Worker – hier wird nichts echt bezahlt."
+    : m.art === "test" ? "Testmodus – bezahlt wird nur mit Stripe-Testkarten, kein echtes Geld. Impressum und Datenschutz folgen mit dem Start des Shops."
     : `Abholung kostenlos · ${lieferText(katalog.liefer) ? `Lieferung ${lieferText(katalog.liefer)}` : "Lieferkosten siehst du vor dem Bezahlen"} · Bezahlt wird sicher über Stripe.`;
   const k = konfig.kontakt ?? {};
   const mail = typeof k.email === "string" && /^[^\s@<>]+@[^\s@<>]+$/.test(k.email) ? k.email : "";
@@ -1069,6 +1071,24 @@ async function katalogHolen() {
       liefer: konfig.lieferung !== false ? lieferDaten(konfig.lieferpreis, false) : null,
     };
   }
+  if (m.art === "pruefen") {
+    // Worker eingetragen, Rechtstexte fehlen: nur im Stripe-Testmodus echte Produkte und Kasse, sonst die Vorschau.
+    let d = null;
+    try {
+      const r = await fetch(`${m.worker}/shop/katalog`);
+      d = r.ok ? await r.json() : null;
+    } catch {
+      d = null;
+    }
+    m = modusNachKatalog(m, d);
+    fuss();
+    if (m.art === "demo") return katalogHolen();
+    if (m.art !== "test") return null;
+    return {
+      artikel: Array.isArray(d.artikel) ? d.artikel : [], lieferung: Boolean(d.lieferung), woche: d.woche ?? null,
+      liefer: d.lieferung ? lieferDaten(d.liefer_cent, d.liefer_ab) : null,
+    };
+  }
   const r = await fetch(`${m.worker}/shop/katalog`);
   const d = await r.json();
   if (!r.ok || !d.bereit) return null;
@@ -1094,7 +1114,7 @@ async function laden() {
     merken(SPEICHER, korb);
     merken(KARTE, "");
     merken(WOCHE_WAHL, null);
-    bestellt = { daten: await bestellungHolen(sessionId) };
+    bestellt = { daten: null }; // Einzelheiten nach der Moduswahl (Testmodus braucht erst den Katalog)
   } else if (vonStripe === "abgebrochen") {
     meldung("Bezahlung abgebrochen – dein Warenkorb ist noch da.", true);
   }
@@ -1111,6 +1131,7 @@ async function laden() {
       return;
     }
     katalog = k;
+    if (bestellt) bestellt = { daten: await bestellungHolen(sessionId) };
   } catch {
     $("inhalt").innerHTML = `<section class="bald"><h2 class="d">Gerade nicht erreichbar</h2><p>Der Shop antwortet im Moment nicht – bitte versuch es in ein paar Minuten noch einmal.</p><a class="btn2" href="">Neu laden</a></section>`;
     return;

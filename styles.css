@@ -497,3 +497,7 @@ img.echt { filter: none !important; }
 .zu-varianten:hover { background: var(--welt-akzent-hauch, #EEF0E6); }
 @keyframes knopf-ein { from { opacity: 0; transform: translate(-50%, 8px); } }
 @media (prefers-reduced-motion: reduce) { .zu-varianten { animation: none; } }
+/* Trennlinie zum Hauptmenü nur nach dem Scrollen (Nutzer 2026-09-23); ganz oben ohne Linie. */
+.kopf { border-bottom-color: transparent; transition: border-color .25s ease, background-color var(--welt-tempo, .9s) ease; }
+body.gescrollt:not([data-ansicht="start"]) .kopf { border-bottom-color: var(--linie); }
+body:not([data-ansicht="start"]) .kopf { transition: border-color .25s ease, background-color var(--welt-tempo) ease; }

@@ -1059,6 +1059,10 @@ async function laden() {
     gleiten(document.querySelector(".varianten"));
   });
   window.addEventListener("scroll", variantenImBlick, { passive: true });
+  // Die Trennlinie unter dem Kopf erst, wenn gescrollt ist – ganz oben liegt der Kopf ruhig auf der Seite (Nutzer 2026-09-23).
+  const gescrollt = () => document.body.classList.toggle("gescrollt", window.scrollY > 2);
+  window.addEventListener("scroll", gescrollt, { passive: true });
+  gescrollt();
   document.addEventListener("input", eingabe);
 }
 

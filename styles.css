@@ -312,3 +312,71 @@ html { scrollbar-width: thin; scrollbar-color: #C9BEAE transparent; }
 ::-webkit-scrollbar-thumb { background: #C9BEAE; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background: #A89C8B; background-clip: padding-box; }
 textarea { scrollbar-width: thin; }
+
+/* ------------------------------------------------------------------ Anlasswelten (Master-Prompt § 4/§ 5)
+   80 % stabil: Raster, Knöpfe (Hauptknopf bleibt Grün), Warenkorb-Logik. 20 % Welt: Grund, Karten, Auswahl, Akzente,
+   Bildstimmung, Tempo, Typografie-Akzente. Farben kommen aus welt.js (weltFarben) über das CSSOM. */
+:root {
+  --welt-grund: #F7F3EC; --welt-flaeche: #EFE8DD; --welt-karte: #FFFDF9; --welt-akzent: #2F4A36;
+  --welt-akzent-text: #2F4A36; --welt-akzent-hauch: #EEF2EC; --welt-tinte: #2B2622; --bild-filter: none;
+  --welt-tempo: .9s;
+}
+body { background: var(--welt-grund); color: var(--welt-tinte); transition: background-color var(--welt-tempo) ease, color var(--welt-tempo) ease; }
+body:not([data-ansicht="start"]) .kopf { background: color-mix(in srgb, var(--welt-grund) 94%, transparent); transition: background-color var(--welt-tempo) ease; }
+.box, .opt, .rahmen, .vorschlag, .pc, .occ, .alt, .sz, .dt, .chip, .qb {
+  transition: background-color var(--welt-tempo) ease, border-color var(--welt-tempo) ease, transform .2s ease;
+}
+.box, .opt, .rahmen, .vorschlag, .pc, .sz, .dt, .chip, .qb { background: var(--welt-karte); }
+.opt.an { border-color: var(--welt-akzent); background: var(--welt-akzent-hauch); }
+.opt .ic.gross, .merkmale .ic, .termin-box .ic, .versprechen .ic.gross { color: var(--welt-akzent-text); }
+.opt.an .opt-punkt { background: var(--welt-akzent); border-color: var(--welt-akzent); }
+.chip.an, .sz.an, .dt.an { border-color: var(--welt-akzent); background: var(--welt-akzent-hauch); }
+.chip:hover, .pc:hover, .alt:hover, .occ:hover { border-color: var(--welt-akzent); }
+.auswahl-chip { background: var(--welt-flaeche); color: var(--welt-tinte); }
+.termin-box { background: var(--welt-akzent-hauch); }
+.weil { border-left-color: var(--welt-akzent); }
+.vorzeile { color: var(--welt-akzent-text); }
+.vorschlag-bild, .produkt-bild { background: var(--welt-flaeche); }
+.vorschlag-bild img, .produkt-bild img, .pc img, .korb-zeile img { filter: var(--bild-filter); transition: filter var(--welt-tempo) ease; }
+.zurueck, .groesse-zeile a, .lk { color: var(--welt-akzent-text); }
+.haken-zeile input { accent-color: var(--welt-akzent); }
+.textfeld textarea:focus { border-color: var(--welt-akzent); outline: none; }
+.kreis { background: var(--welt-akzent-hauch); }
+.kreis .ic.gross { color: var(--welt-akzent-text); }
+
+/* Fortschritt wie im Entwurf */
+.fortschritt { display: flex; align-items: center; gap: 14px; max-width: 420px; margin: 0 0 18px; font-size: 13px; color: var(--leise); }
+.fortschritt-bahn { flex: 1; height: 3px; border-radius: 3px; background: color-mix(in srgb, var(--welt-tinte) 12%, transparent); overflow: hidden; }
+.fortschritt-teil { display: block; height: 100%; width: 0; background: var(--welt-akzent); transition: width .6s ease, background-color var(--welt-tempo) ease; }
+
+/* Handschriftliche Zeile der Welt */
+.welt-zug { display: block; font-size: 30px; line-height: 1; color: var(--welt-akzent-text); transform: rotate(-3deg); transform-origin: left; margin-bottom: 2px; min-height: 1px; }
+.welt-zug:empty { display: none; }
+.titelzeile { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; margin-bottom: 20px; }
+.titelzeile .seitentitel { margin-bottom: 0; }
+.titelzeile .welt-zug { font-size: 34px; }
+
+/* Welt-Vorschau auf den Anlass-Karten: das Bild bekommt die Fläche der Welt */
+.occ img { background: var(--flaeche); }
+
+/* Tempo und Typografie je Welt */
+.inhalt.einblenden { animation-duration: .45s; }
+body[data-welt="geburtstag"] .inhalt.einblenden, body[data-welt="einfach"] .inhalt.einblenden { animation-name: aufbluehen; animation-duration: .5s; }
+@keyframes aufbluehen { from { opacity: 0; transform: translateY(8px) scale(.995); } to { opacity: 1; transform: none; } }
+body[data-welt="geburtstag"] .seitenkopf h1, body[data-welt="geburtstag"] .seitentitel { font-weight: 600; }
+body[data-welt="liebe"] .seitenkopf h1, body[data-welt="liebe"] .seitentitel, body[data-welt="liebe"] .name-preis h2 { font-style: italic; }
+body[data-welt="hochzeit"] .seitenkopf h1, body[data-welt="hochzeit"] .seitentitel { letter-spacing: .02em; font-weight: 400; }
+body.leise { --welt-tempo: 1.4s; }
+body.leise .inhalt.einblenden { animation-duration: 1s; }
+body.leise .seitenkopf h1, body.leise .seitentitel, body.leise .name-preis h2 { font-weight: 400; letter-spacing: .01em; }
+body.leise .seitenkopf { margin-bottom: 40px; gap: 12px; }
+body.leise .optionen { gap: 18px; }
+body.leise .opt { min-height: 88px; }
+body.leise .opt:hover, body.leise .pc:hover, body.leise .occ:hover { transform: none; }
+body.leise .welt-zug { transform: none; }
+body[data-gefuehl="zart"] .vorschlag, body[data-gefuehl="elegant"] .vorschlag { box-shadow: none; }
+body[data-gefuehl="ausdrucksstark"] .name-preis h2, body[data-gefuehl="froehlich"] .name-preis h2 { font-weight: 700; }
+@media (prefers-reduced-motion: reduce) {
+  body, .box, .opt, .chip, .pc, .fortschritt-teil, .vorschlag-bild img { transition: none !important; }
+  .inhalt.einblenden { animation: none !important; }
+}

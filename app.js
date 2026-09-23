@@ -6,12 +6,13 @@
 //   Warenkorb · Bestätigung (Rückkehr von Stripe) · Übersicht („Für mich").
 // Modi: „bald" (keine Anfrage) · „demo" (alles zeigen, Kasse gesperrt, keine Anfrage) · „shop"/„vorschau" (Worker).
 // CSP ohne 'unsafe-inline': keine style-Attribute – Farben setzt JS über das CSSOM (`farbenSetzen`).
-import { anlass, ANLAESSE, auswahlAusHash, bildPfad, hashAusAuswahl, PREISRAHMEN, schritt, vorschlag } from "./beratung.js";
+import { anlass, ANLAESSE, auswahlAusHash, bildPfad, hashAusAuswahl, PREISRAHMEN, schritt, vorschlag, wahl } from "./beratung.js";
 import {
   kassenAnfrage, kasseErlaubt, korbAnzahl, korbBereinigen, korbHinzu, korbLesen, korbSetzen, korbSumme, MENGE_MAX, modus,
   preisText, rechtlicheLinks, rueckkehr,
 } from "./logik.js";
 import { aktiveExtras, demoKatalog, extraFinden, finden, GEFUEHLE, groesse as groesseVon, GROESSEN, SAISON_SATZ } from "./sortiment.js";
+import { sprache, weltFarben } from "./welt.js";
 import { liefertermin, tagText, wocheLesen } from "./woche.js";
 
 const konfig = window.SHOP_KONFIG ?? {};
@@ -22,6 +23,7 @@ const NAMEN = "shop-namen";
 const ART = "shop-art";
 const KARTE = "shop-karte";
 const KARTE_MAX = 200;
+const LETZTER = "shop-letzter-anlass";
 const TAGE = ["", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
 const TAGE_KURZ = ["", "Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
@@ -106,6 +108,31 @@ function meldung(text, kurz = false) {
   if (kurz) meldungZeit = setTimeout(() => { e.hidden = true; }, 3500);
 }
 
+/**
+ * Die Welt eines Bildschirms (Master-Prompt § 4/§ 5): Farben aus Anlass × Gefühl über das CSSOM, dazu Kennzeichen für
+ * Tempo und Typografie (`data-welt`, `data-gefuehl`, `.leise`). Ohne Anlass neutral.
+ */
+function welt(anlassId, gefuehlId) {
+  const f = weltFarben(anlassId, gefuehlId);
+  const r = document.documentElement.style;
+  for (const [k, v] of [["grund", f.grund], ["flaeche", f.flaeche], ["karte", f.karte], ["akzent", f.akzent],
+    ["akzent-text", f.akzentText], ["akzent-hauch", f.akzentHauch], ["tinte", f.tinte]]) r.setProperty(`--welt-${k}`, v);
+  r.setProperty("--bild-filter", f.bild);
+  document.body.dataset.welt = anlass(anlassId)?.id ?? "";
+  document.body.dataset.gefuehl = gefuehlId ?? "";
+  document.body.classList.toggle("leise", Boolean(anlass(anlassId)?.leise));
+}
+
+/** Welt des Warenkorbs: die des ersten Straußes (Anlass gemerkt, Gefühl aus dem Katalog). */
+function korbWelt() {
+  const n = namen();
+  for (const p of korb) {
+    const a = katalog.artikel.find((x) => x.preis_id === p.preis && x.stil !== "extra");
+    if (a) return [n[p.preis]?.anlass ?? null, a.stil];
+  }
+  return [null, null];
+}
+
 /** Farben und Breiten aus data-Attributen – über das CSSOM, weil die CSP keine style-Attribute erlaubt. */
 function farbenSetzen(root) {
   root.querySelectorAll("[data-flaeche]").forEach((e) => e.style.setProperty("--flaeche", e.dataset.flaeche));
@@ -162,6 +189,13 @@ function banner() {
   return m.art === "demo" ? `<p class="demo-banner" role="note">Vorschau – so wird der Shop aussehen. Bestellen geht noch nicht.</p>` : "";
 }
 
+/** Fortschritt wie im Entwurf: „1 / 3" mit Balken. */
+function fortschritt(i) {
+  return `<div class="fortschritt" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="${i}" aria-label="Schritt ${i} von 3">
+      <span>${i} / 3</span><span class="fortschritt-bahn"><span class="fortschritt-teil" data-anteil="${i / 3}"></span></span>
+    </div>`;
+}
+
 function zurueckLink(ziel, text = "Zurück") {
   return `<a class="zurueck" href="${esc(ziel)}">${ic("zurueck")}${esc(text)}</a>`;
 }
@@ -200,12 +234,13 @@ function startHtml() {
 
 function anlassHtml() {
   return `${banner()}
+    ${fortschritt(1)}
     <div class="seitenkopf">
       <h1 class="d">Wofür sind die Blumen?</h1>
       <p>Wähle einen Anlass – ich schlage dir den passenden Strauß vor.</p>
     </div>
     <div class="anlaesse">${ANLAESSE.map((a) => `
-      <a class="occ${a.leise ? " leise" : ""}" href="${esc(hashAusAuswahl({ anlass: a.id }))}" data-flaeche="${a.farben.flaeche}">
+      <a class="occ${a.leise ? " leise" : ""}" href="${esc(hashAusAuswahl({ anlass: a.id }))}" data-flaeche="${a.farben.flaeche}" data-welt-vorschau="${a.id}">
         <img src="bilder/klein/anlass_${a.id}.jpg" alt="" loading="lazy" width="560" height="778">
         <span class="occ-text"><span class="d occ-titel">${esc(a.titel)}</span><span class="occ-unter">${esc(a.unter)}</span></span>
       </a>`).join("")}</div>
@@ -217,16 +252,19 @@ function anlassHtml() {
 
 function botschaftHtml(w) {
   const a = anlass(w.anlass);
+  const sp = sprache(a.id);
   const gewaehlt = entwurf.absicht;
   return `${banner()}
     <div class="schmal">
       <div class="leiste">${zurueckLink("#anlass")}${chip(`Anlass: ${a.titel}`)}</div>
+      ${fortschritt(2)}
       <div class="seitenkopf">
-        <h1 class="d">Was möchtest du damit sagen?</h1>
-        <p>Such dir aus, was am besten passt.</p>
+        <span class="logo welt-zug" aria-hidden="true">${esc(sp.zug)}</span>
+        <h1 class="d">${esc(sp.frage)}</h1>
+        <p>${esc(sp.unter)}</p>
       </div>
       <div role="radiogroup" aria-label="Botschaft" class="optionen">${a.absichten.map((ab, i) => `
-        <button type="button" class="opt${gewaehlt === ab.id ? " an" : ""}" role="radio" aria-checked="${gewaehlt === ab.id}" data-absicht="${ab.id}" data-akzent="${a.farben.akzent}">
+        <button type="button" class="opt${gewaehlt === ab.id ? " an" : ""}" role="radio" aria-checked="${gewaehlt === ab.id}" data-absicht="${ab.id}">
           ${ic(ABSICHT_IC[i], "ic gross")}
           <span class="opt-text"><span class="opt-titel">${esc(ab.titel)}</span><span class="opt-unter">${esc(ab.satz)}</span></span>
           <span class="opt-punkt" aria-hidden="true">${gewaehlt === ab.id ? ic("haken") : ""}</span>
@@ -252,9 +290,10 @@ function vorschlagHtml(v) {
     .filter(([k]) => v[k]).map(([k, text, feld]) => `<button type="button" class="chip" data-${feld}="${v[k]}">${text}</button>`).join("");
   return `${banner()}
     <div class="leiste">${zurueckLink(hashAusAuswahl({ anlass: v.anlass.id }))}<span class="chips-zeile">${chips.map(chip).join("")}</span></div>
-    <p class="vorzeile">Das passt zu deinem Moment</p>
-    <h1 class="d seitentitel">Mein Vorschlag für dich</h1>
-    <section class="vorschlag" data-flaeche="${v.anlass.farben.flaeche}">
+    ${fortschritt(3)}
+    <p class="vorzeile">${esc(sprache(v.anlass.id).vorzeile)}</p>
+    <div class="titelzeile"><h1 class="d seitentitel">Mein Vorschlag für dich</h1><span class="logo welt-zug" aria-hidden="true">${esc(sprache(v.anlass.id).zug)}</span></div>
+    <section class="vorschlag">
       <figure class="vorschlag-bild">
         <img src="${esc(b.src)}" alt="Strauß ${esc(v.name)}" width="1152" height="1600">
         ${b.beispiel ? `<figcaption>${esc(BEISPIEL)}</figcaption>` : ""}
@@ -303,7 +342,7 @@ function produktHtml(v) {
   return `${banner()}
     <div class="leiste">${zurueckLink(hashAusAuswahl(v.auswahl), "Zurück zum Vorschlag")}</div>
     <section class="produkt">
-      <figure class="produkt-bild" data-flaeche="${v.anlass.farben.flaeche}">
+      <figure class="produkt-bild">
         <img src="${esc(b.src)}" alt="Strauß ${esc(v.name)}" width="1152" height="1600">
         ${b.beispiel ? `<figcaption>${esc(BEISPIEL)}</figcaption>` : ""}
       </figure>
@@ -422,9 +461,10 @@ function warenkorbHtml() {
 function bestaetigungHtml() {
   const t = termin();
   const a = art();
+  const sp = sprache(lesen(LETZTER, null));
   return `<section class="bestaetigung">
       <span class="kreis">${ic("haken", "ic gross")}</span>
-      <h1 class="d">Schön, dass du Freude verschenkst.</h1>
+      <h1 class="d">${esc(sp.dank)}</h1>
       <p>Deine Bestellung ist angekommen. Die Bestätigung kommt per E-Mail.</p>
       <div class="box">
         <h2 class="d">So geht es weiter</h2>
@@ -503,6 +543,13 @@ function zeichnen() {
     html = !v ? `<p class="ruhig">Diesen Strauß gibt es gerade nicht. <a href="#anlass">Noch einmal wählen</a></p>`
       : z.ansicht === "produkt" ? produktHtml(v) : vorschlagHtml(v);
   }
+  // Die Welt folgt der Auswahl: Anlass ab Schritt 2, dazu das Gefühl des Vorschlags; der Warenkorb trägt die Welt
+  // seines Straußes, die Bestätigung die des letzten Einkaufs. Start, Anlasswahl und Übersicht bleiben neutral.
+  if (z.ansicht === "botschaft") welt(z.auswahl.anlass, null);
+  else if (z.ansicht === "vorschlag" || z.ansicht === "produkt") welt(z.auswahl.anlass, wahl(z.auswahl)?.gefuehl ?? null);
+  else if (z.ansicht === "warenkorb") welt(...korbWelt());
+  else if (rueckkehr(location.search) === "bestellt" && z.ansicht === "start") welt(lesen(LETZTER, null), null);
+  else welt(null, null);
   const neu = z.ansicht !== letzteAnsicht;
   letzteAnsicht = z.ansicht;
   // Die Bestätigung nach Stripe steht auf der Startadresse – aber nicht als Bühne.
@@ -533,6 +580,7 @@ function nachAenderung() {
 
 async function zurKasse(knopf) {
   if (!kasseErlaubt(m)) return; // Demo: keine Anfrage, nie
+  merken(LETZTER, korbWelt()[0]);
   const fehler = document.querySelector("[data-kasse-fehler]");
   fehler.hidden = true;
   knopf.disabled = true;
@@ -687,6 +735,15 @@ async function laden() {
   window.addEventListener("hashchange", zeichnen);
   window.addEventListener("popstate", zeichnen);
   document.addEventListener("click", klick);
+  // „Die Seite darf sich während der Navigation verwandeln" (Master-Prompt § 5): auf der Anlass-Seite tönt das
+  // Überfahren oder Fokussieren einer Karte die Seite leise in deren Welt – ohne Klick, ohne Sprung.
+  const vorschau = (ev) => {
+    if (zustand().ansicht !== "anlass") return;
+    const k = ev.target.closest?.("[data-welt-vorschau]");
+    welt(k ? k.dataset.weltVorschau : null, null);
+  };
+  document.addEventListener("pointerover", vorschau);
+  document.addEventListener("focusin", vorschau);
   document.addEventListener("change", eingabe);
   document.addEventListener("input", eingabe);
 }

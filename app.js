@@ -11,8 +11,8 @@ import {
   anlass, ANLAESSE, auswahlAusHash, bildPfad, hashAusAuswahl, hashAusStrauss, PREISRAHMEN, schritt, strauss, straussAusHash, vorschlag, wahl,
 } from "./beratung.js";
 import {
-  kassenAnfrage, kasseErlaubt, korbAnzahl, korbBereinigen, korbHinzu, korbLesen, korbSetzen, korbSumme, MENGE_MAX, modus,
-  preisText, rechtlicheLinks, rueckkehr,
+  kassenAnfrage, kasseErlaubt, korbAnzahl, korbBereinigen, korbHinzu, korbLesen, korbSetzen, korbSumme, lieferDaten, lieferText,
+  MENGE_MAX, modus, preisText, rechtlicheLinks, rueckkehr,
 } from "./logik.js";
 import {
   aktiveExtras, demoKatalog, extraFinden, finden, FOTO_SATZ, gefuehl as gefuehlVon, GEFUEHLE, groesse as groesseVon, GROESSEN, SAISON_SATZ,
@@ -37,7 +37,7 @@ $("shop-name").textContent = konfig.name || "Shop";
 $("shop-unterzeile").textContent = konfig.unterzeile || "";
 document.title = konfig.name ? `${konfig.name} – ${konfig.unterzeile || "Shop"}` : "Shop";
 
-let katalog = { artikel: [], lieferung: false, woche: null };
+let katalog = { artikel: [], lieferung: false, woche: null, liefer: null };
 let korb = [];
 /** Entwurf auf der Seite „Botschaft" – erst „Vorschlag ansehen" schreibt ihn in den Hash. */
 let entwurf = { absicht: null, preis: null };
@@ -285,7 +285,7 @@ function startHtml() {
         <p class="buehne-unter">Sag mir, was du ausdrücken möchtest – ich finde den passenden Strauß für dich.</p>
         <div class="buehne-knoepfe">
           <a class="btn-hell" href="#anlass">Zum passenden Strauß${ic("pfeil")}</a>
-          <a class="buehne-link" href="#uebersicht">Ich weiß schon, was ich möchte – Alle Sträuße</a>
+          <a class="buehne-link" href="#uebersicht">Alle Sträuße ansehen</a>
         </div>
         ${x ? `<p class="buehne-termin">${ic("kalender")}<span>Bestellen bis <strong>${esc(x.schluss)}</strong> · Abholung ${esc(x.abholung)}${katalog.lieferung ? ` · Lieferung ${esc(x.route)}` : ""}</span></p>` : ""}
       </div>
@@ -356,7 +356,9 @@ function botschaftHtml(w) {
 
 /** „Abholung kostenlos" – bei Lieferung ohne erfundenen Betrag: den zeigt Stripe vor dem Bezahlen (Lieferpreis offen). */
 function preisHinweis() {
-  return katalog.lieferung ? "Abholung kostenlos · Lieferkosten siehst du vor dem Bezahlen" : "Abholung kostenlos";
+  if (!katalog.lieferung) return "Abholung kostenlos";
+  const l = lieferText(katalog.liefer);
+  return l ? `Abholung kostenlos · Lieferung ${l}` : "Abholung kostenlos · Lieferkosten siehst du vor dem Bezahlen";
 }
 
 /** Größen als Radiogruppe mit Preis und Größenhilfe – `bleiben`: die Adresse wird ersetzt, nicht gestapelt. */
@@ -376,10 +378,8 @@ function passtHtml(a, absichtId) {
   const rahmen = ab && PREISRAHMEN.find((p) => p.groesse === ab.groesse);
   const cent = ab && preisVon(ab.groesse);
   if (!g || !rahmen || cent == null) return "";
-  const anders = entwurf.preis && entwurf.preis !== "egal" && entwurf.preis !== rahmen.id;
-  return `<p class="klein passt" aria-live="polite">${anders
-    ? `Dein Preisrahmen bestimmt die Größe – zu „${esc(ab.titel)}“ hätte „${esc(g.name)}“ (${esc(preisText(cent).replace(",00", ""))}) gepasst.`
-    : `Zu „${esc(ab.titel)}“ passt „${esc(g.name)}“ (${esc(preisText(cent).replace(",00", ""))}). Wählst du einen anderen Rahmen, richtet sich die Größe danach.`}</p>`;
+  // Kurz (Review 2026-09-23): nur die Empfehlung – warum ein anderer Rahmen die Größe ändert, sagt der Vorschlag.
+  return `<p class="klein passt" aria-live="polite">Empfohlen: ${esc(g.name)} · ${esc(preisText(cent).replace(",00", ""))}</p>`;
 }
 
 function vorschlagHtml(v) {
@@ -413,7 +413,7 @@ function vorschlagHtml(v) {
         </ul>
         <div class="knopfreihe unten">
           <button type="button" class="btn breit" data-rein="${esc(v.haupt.preis_id)}">${esc(v.groesse.name)} · ${esc(preisText(v.haupt.cent))} in den Warenkorb${ic("pfeil")}</button>
-          <a class="btn2" href="${esc(hashAusAuswahl(v.auswahl, "produkt"))}">Details</a>
+          <a class="btn2" href="${esc(hashAusAuswahl(v.auswahl, "produkt"))}">Mehr zum Strauß</a>
         </div>
       </div>
     </section>
@@ -474,7 +474,7 @@ function produktHtml(v, ersetze = null) {
           <details><summary>Was macht diesen Strauß besonders?</summary><p>${esc(v.gefuehl.text)} ${esc(SAISON_SATZ)}</p></details>
           <details><summary>Wie groß ist er?</summary><p>${GROESSEN.map((g) => `${esc(g.name)}: ${esc(g.satz)}.`).join(" ")} Alle drei werden in derselben Farb- und Stilwelt gebunden – größer heißt mehr Blüten und mehr Fülle.</p></details>
           <details><summary>Pflegetipps</summary><p>${esc(pflege)}</p></details>
-          <details><summary>Lieferung &amp; Abholung</summary><p>${esc(konfig.abholung || "Abholung in Heide – kostenlos.")} ${katalog.lieferung ? esc(konfig.liefergebiet || "Geliefert wird in Heide und Umgebung, etwa 6 Kilometer weit – mit dem Rad, auf einer Route. Die Lieferkosten siehst du vor dem Bezahlen.") : ""} ${esc(schlussSatz())} – danach geht es in die Woche darauf.</p></details>
+          <details><summary>Lieferung &amp; Abholung</summary><p>${esc(konfig.abholung || "Abholung in Heide – kostenlos.")} ${katalog.lieferung ? esc(konfig.liefergebiet || "Geliefert wird in Heide und Umgebung, etwa 6 Kilometer weit – mit dem Rad, auf einer Route.") + " " + (lieferText(katalog.liefer) ? `Die Lieferung kostet ${lieferText(katalog.liefer)}.` : "Die Lieferkosten siehst du vor dem Bezahlen.") : ""} ${esc(schlussSatz())} – danach geht es in die Woche darauf.</p></details>
         </div>
       </div>
     </section>`;
@@ -551,10 +551,14 @@ function warenkorbHtml() {
           const x = katalog.artikel.find((y) => y.preis_id === p.preis);
           return x ? `<div class="summenzeile"><span>${esc(namen()[p.preis]?.name || x.name)}${p.menge > 1 ? ` × ${p.menge}` : ""}</span><span>${esc(preisText(x.cent * p.menge))}</span></div>` : "";
         }).join("")}
-        ${a === "lieferung"
-          // Lieferpreis offen (Nutzer 2026-09-23): kein erfundener Betrag – Stripe zeigt ihn vor dem Bezahlen.
+        ${a === "lieferung" && katalog.liefer && !katalog.liefer.ab
+          // Ein Lieferpreis ist bekannt (SHOP_LIEFERUNG bzw. config.js): dann steht der Gesamtbetrag schon hier.
+          ? `<div class="summenzeile leise"><span>Lieferung Heide &amp; Umgebung</span><span>${esc(preisText(katalog.liefer.cent))}</span></div>
+        <div class="summenzeile gesamt"><span>Gesamt</span><span class="d">${esc(preisText(summe + katalog.liefer.cent))}</span></div>`
+          : a === "lieferung"
+          // Mehrere Lieferpreise oder keiner bekannt: kein erfundener Betrag – Stripe zeigt ihn vor dem Bezahlen.
           ? `<div class="summenzeile gesamt"><span>Zwischensumme</span><span class="d">${esc(preisText(summe))}</span></div>
-        <div class="summenzeile leise"><span>Lieferung Heide &amp; Umgebung</span><span>siehst du vor dem Bezahlen</span></div>`
+        <div class="summenzeile leise"><span>Lieferung Heide &amp; Umgebung</span><span>${katalog.liefer ? `${esc(lieferText(katalog.liefer))}, genau vor dem Bezahlen` : "siehst du vor dem Bezahlen"}</span></div>`
           : `<div class="summenzeile leise"><span>Abholung</span><span>kostenlos</span></div>
         <div class="summenzeile gesamt"><span>Gesamt</span><span class="d">${esc(preisText(summe))}</span></div>`}
         <button type="button" class="btn breit" data-kasse${kannKasse ? "" : " disabled"}>${kasseErlaubt(m) ? "Zur Kasse" : "Bestellen geht noch nicht"}${kasseErlaubt(m) ? ic("pfeil") : ""}</button>
@@ -601,7 +605,7 @@ function uebersichtHtml() {
   return `${banner()}
     <div class="seitenkopf">
       <h1 class="d">Alle Sträuße</h1>
-      <p>Fünf Stimmungen, drei Größen – jeder Strauß wird in der Woche frisch gebunden. Lieber beraten werden? <a href="#anlass">Wofür sind die Blumen?</a></p>
+      <p>Fünf Stimmungen, drei Größen – jeder Strauß wird jede Woche frisch gebunden. Lieber beraten werden? <a href="#anlass">Wofür sind die Blumen?</a></p>
     </div>
     <div class="karten3 fuenf">${GEFUEHLE.map((g) => {
       const x = finden(katalog.artikel, g.id, "M");
@@ -906,7 +910,7 @@ function fuss() {
   const hinweis = m.art === "bald" ? "Impressum und Datenschutz folgen mit dem Start des Shops."
     : m.art === "demo" ? "Vorschau – bestellen geht noch nicht. Impressum und Datenschutz folgen mit dem Start des Shops."
     : m.art === "vorschau" ? "Vorschau mit einem lokalen Worker – hier wird nichts echt bezahlt."
-    : "Abholung kostenlos · Lieferkosten siehst du vor dem Bezahlen · Bezahlt wird sicher über Stripe.";
+    : `Abholung kostenlos · ${lieferText(katalog.liefer) ? `Lieferung ${lieferText(katalog.liefer)}` : "Lieferkosten siehst du vor dem Bezahlen"} · Bezahlt wird sicher über Stripe.`;
   const k = konfig.kontakt ?? {};
   const mail = typeof k.email === "string" && /^[^\s@<>]+@[^\s@<>]+$/.test(k.email) ? k.email : "";
   const tel = typeof k.telefon === "string" && /^[+0-9 ()/-]{6,30}$/.test(k.telefon) ? k.telefon : "";
@@ -940,12 +944,18 @@ async function bestellungHolen(id) {
 
 async function katalogHolen() {
   if (m.art === "demo") {
-    return { artikel: demoKatalog(konfig.preise, aktiveExtras(konfig)), lieferung: konfig.lieferung !== false, woche: null };
+    return {
+      artikel: demoKatalog(konfig.preise, aktiveExtras(konfig)), lieferung: konfig.lieferung !== false, woche: null,
+      liefer: konfig.lieferung !== false ? lieferDaten(konfig.lieferpreis, false) : null,
+    };
   }
   const r = await fetch(`${m.worker}/shop/katalog`);
   const d = await r.json();
   if (!r.ok || !d.bereit) return null;
-  return { artikel: Array.isArray(d.artikel) ? d.artikel : [], lieferung: Boolean(d.lieferung), woche: d.woche ?? null };
+  return {
+    artikel: Array.isArray(d.artikel) ? d.artikel : [], lieferung: Boolean(d.lieferung), woche: d.woche ?? null,
+    liefer: d.lieferung ? lieferDaten(d.liefer_cent, d.liefer_ab) : null,
+  };
 }
 
 async function laden() {

@@ -24,6 +24,11 @@ window.SHOP_KONFIG = {
   extras: ["karte"],
   /** Nur für die Vorschau: gibt es Lieferung? (Im Shop entscheidet der Worker über SHOP_LIEFERUNG.) */
   lieferung: true,
+  /**
+   * Nur für die Vorschau: Lieferpreis in Cent, z. B. 500. null = noch offen – dann nennt die Seite keinen Betrag.
+   * Im Shop kommt er aus SHOP_LIEFERUNG im Worker.
+   */
+  lieferpreis: null,
   /** Sätze zu Abholung und Liefergebiet – leer = die ruhigen Standardsätze. `abholung` erscheint auch im Fuß. */
   abholung: "",
   liefergebiet: "",

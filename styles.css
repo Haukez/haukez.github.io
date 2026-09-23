@@ -507,3 +507,10 @@ body:not([data-ansicht="start"]) .kopf { transition: border-color .25s ease, bac
 .kopf .marke { justify-self: start; }
 .kopf .kopf-nav { grid-column: 2; }
 .kopf .warenkorb-knopf { grid-column: 3; justify-self: end; }
+/* WhatsApp für individuelle Angebote (Nutzer 2026-09-23) – ruhig, in der Farbe der Welt, kein Markenlogo. */
+.eigenes { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; margin-top: 28px; padding: 20px 22px; border-radius: 12px; border: 1px dashed var(--welt-akzent, #2F4A36); background: var(--welt-karte, #FFFDF9); }
+.eigenes h3 { margin: 0 0 4px; font-size: 24px; }
+.eigenes p { margin: 0; max-width: 520px; }
+.wa-knopf { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+.wa-link { display: inline-flex; align-items: center; gap: 6px; }
+.wa-link .ic, .wa-knopf .ic { flex: none; }

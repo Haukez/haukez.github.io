@@ -32,8 +32,12 @@ window.SHOP_KONFIG = {
   /** Sätze zu Abholung und Liefergebiet – leer = die ruhigen Standardsätze. `abholung` erscheint auch im Fuß. */
   abholung: "",
   liefergebiet: "",
-  /** Kontakt im Fuß und in der Bestätigung – leer = nicht gezeigt (nichts erfinden). */
-  kontakt: { email: "", telefon: "" },
+  /**
+   * Kontakt im Fuß und in der Bestätigung – leer = nicht gezeigt (nichts erfinden).
+   * `whatsapp`: Nummer international, z. B. "+49 170 1234567" – dann können Kundinnen per WhatsApp ein individuelles
+   * Angebot anfragen (Anlass-Seite, Vorschlag, Produkt, Fuß), auch in der Vorschau. Leer = kein WhatsApp-Knopf.
+   */
+  kontakt: { email: "", telefon: "", whatsapp: "" },
   /**
    * Ela auf der Startseite: ein eigenes Foto (Datei neben dieser, z. B. "ela.jpg") und drei Zeilen von ihr. Erst wenn
    * beides gesetzt ist, erscheint der Abschnitt (Spec 2026-09-23-kaufseite-schaerfen § 2).

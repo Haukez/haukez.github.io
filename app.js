@@ -11,8 +11,8 @@ import {
   anlass, ANLAESSE, auswahlAusHash, bildPfad, hashAusAuswahl, hashAusStrauss, PREISRAHMEN, schritt, strauss, straussAusHash, vorschlag, wahl,
 } from "./beratung.js";
 import {
-  kassenAnfrage, kasseErlaubt, korbAnzahl, korbBereinigen, korbHinzu, korbLesen, korbSetzen, korbSumme, lieferDaten, lieferText,
-  MENGE_MAX, modus, preisText, rechtlicheLinks, rueckkehr,
+  anfrageText, kassenAnfrage, kasseErlaubt, korbAnzahl, korbBereinigen, korbHinzu, korbLesen, korbSetzen, korbSumme, lieferDaten,
+  lieferText, MENGE_MAX, modus, preisText, rechtlicheLinks, rueckkehr, whatsappLink,
 } from "./logik.js";
 import {
   aktiveExtras, demoKatalog, extraFinden, finden, FOTO_SATZ, gefuehl as gefuehlVon, GEFUEHLE, groesse as groesseVon, GROESSEN, SAISON_SATZ,
@@ -65,6 +65,7 @@ const IC = {
   schloss: "M6 11h12v9H6zM9 11V8a3 3 0 0 1 6 0v3",
   minus: "M6 12h12",
   plus: "M12 6v12M6 12h12",
+  chat: "M4 5h16v11H10l-5 4v-4H4z",
 };
 const ABSICHT_IC = ["freude", "stern", "geschenk"];
 const ic = (name, klasse = "ic") => `<svg class="${klasse}" viewBox="0 0 24 24" aria-hidden="true"><path d="${IC[name]}"/></svg>`;
@@ -259,6 +260,18 @@ function fortschritt(i) {
     </div>`;
 }
 
+/**
+ * WhatsApp für individuelle Angebote (Nutzer 2026-09-23): nur mit Nummer in config.js `kontakt.whatsapp`, sonst
+ * unsichtbar. Die vorbereitete Nachricht nennt, was die Kundin gewählt hat – Ela muss nicht nachfragen.
+ */
+function waLink(teile = {}) {
+  return whatsappLink(konfig.kontakt?.whatsapp, anfrageText({ name: konfig.name || "", ...teile }));
+}
+
+function waAnker(link, text, klasse = "wa-link") {
+  return link ? `<a class="${klasse}" href="${esc(link)}" target="_blank" rel="noopener">${ic("chat")}${esc(text)}</a>` : "";
+}
+
 function zurueckLink(ziel, text = "Zurück") {
   return `<a class="zurueck" href="${esc(ziel)}">${ic("zurueck")}${esc(text)}</a>`;
 }
@@ -320,6 +333,7 @@ function anlassHtml() {
     <div class="alternativen-kacheln">
       <a class="alt" href="#uebersicht">${ic("stern", "ic gross")}<span><strong>Etwas anderes</strong><span>Geburt, Genesung, Einzug … such dir eine Stimmung aus</span></span>${ic("pfeil")}</a>
       <a class="alt" href="${esc(hashAusAuswahl({ anlass: "einfach", absicht: "alltag" }))}">${ic("haus", "ic gross")}<span><strong>Für mich / fürs Zuhause</strong><span>Blumen für deinen Tisch</span></span>${ic("pfeil")}</a>
+      ${waLink() ? `<a class="alt" href="${esc(waLink())}" target="_blank" rel="noopener">${ic("chat", "ic gross")}<span><strong>Etwas ganz Eigenes</strong><span>Schreib mir per WhatsApp – ich mache dir ein eigenes Angebot</span></span>${ic("pfeil")}</a>` : ""}
     </div>`;
 }
 
@@ -384,6 +398,16 @@ function passtHtml(a, absichtId) {
   return `<p class="klein passt" aria-live="polite">Empfohlen: ${esc(g.name)} · ${esc(preisText(cent).replace(",00", ""))}</p>`;
 }
 
+/** „Etwas ganz Eigenes?" – nur mit WhatsApp-Nummer. */
+function eigenesHtml(link) {
+  if (!link) return "";
+  return `<div class="eigenes">
+      <div><h3 class="d">Etwas ganz Eigenes?</h3>
+      <p>Für besondere Wünsche, größere Anlässe oder ein festes Budget mache ich dir gern ein eigenes Angebot.</p></div>
+      ${waAnker(link, "Per WhatsApp schreiben", "btn wa-knopf")}
+    </div>`;
+}
+
 function vorschlagHtml(v) {
   const b = bild(v.haupt, v.anlass.id);
   // Nur ein Preisrahmen, der die Größe noch bestimmt, steht als Chip da – nach einer Größe von Hand nicht mehr.
@@ -433,6 +457,10 @@ function vorschlagHtml(v) {
         </button>`;
       }).join("")}</div>
       <div class="knopfreihe mitte"><a class="btn2" href="#uebersicht">Alle Sträuße ansehen</a></div>
+      ${eigenesHtml(waLink({
+        anlass: v.anlass.titel, botschaft: v.absicht.titel,
+        vorschlag: `${v.name} (${v.produkt}, ${preisText(v.haupt.cent).replace(",00", "")})`, termin: beideSatz(),
+      }))}
     </section>`;
 }
 
@@ -472,6 +500,10 @@ function produktHtml(v, ersetze = null) {
         <div class="termin-box">${ic("kalender")}<span><strong>${esc(terminSatz(a))}</strong></span></div>
         ${knopf}
         <p class="klein unter-knopf">${esc(schlussSatz())}</p>
+        ${waLink() ? `<p class="klein unter-knopf">Lieber etwas ganz Eigenes? ${waAnker(waLink({
+          anlass: v.anlass?.titel ?? "", botschaft: v.absicht?.titel ?? "",
+          vorschlag: `${v.name}${v.produkt !== v.name ? ` (${v.produkt})` : ""}, ${preisText(v.haupt.cent).replace(",00", "")}`, termin: terminSatz(a),
+        }), "Per WhatsApp anfragen")}</p>` : ""}
         <div class="akkordeon">
           <details><summary>Was macht diesen Strauß besonders?</summary><p>${esc(v.gefuehl.text)} ${esc(SAISON_SATZ)}</p></details>
           <details><summary>Wie groß ist er?</summary><p>${GROESSEN.map((g) => `${esc(g.name)}: ${esc(g.satz)}.`).join(" ")} Alle drei werden in derselben Farb- und Stilwelt gebunden – größer heißt mehr Blüten und mehr Fülle.</p></details>
@@ -976,6 +1008,7 @@ function fuss() {
   const tel = typeof k.telefon === "string" && /^[+0-9 ()/-]{6,30}$/.test(k.telefon) ? k.telefon : "";
   const kontakt = [
     mail ? `<a class="fl" href="mailto:${esc(mail)}">${esc(mail)}</a>` : "",
+    waAnker(waLink(), "WhatsApp – individuelles Angebot", "fl wa-link"),
     tel ? `<a class="fl" href="tel:${esc(tel.replace(/[^+0-9]/g, ""))}">${esc(tel)}</a>` : "",
     konfig.abholung ? `<span>${esc(konfig.abholung)}</span>` : "",
   ].filter(Boolean);

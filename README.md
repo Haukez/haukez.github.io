@@ -46,6 +46,10 @@ python -m http.server 4321 --directory shop
    - `abholung` (der Abholort),
    - `ela` (eigenes Foto und drei Zeilen für die Startseite).
    Leer bleibt der jeweilige Teil unsichtbar.
+   - `kontakt.whatsapp` (international, z. B. „+49 170 …“): Dann erscheint „Etwas ganz Eigenes? Per WhatsApp
+     schreiben“ auf der Anlass-Seite, beim Vorschlag, auf der Produktseite und im Fuß, auch in der Vorschau. Der Link
+     öffnet WhatsApp mit einer vorbereiteten Nachricht (Anlass, Botschaft, Strauß, Termin). Die Seite selbst schickt
+     nichts. In die Datenschutzerklärung gehört ein Satz zu WhatsApp (Meta), sobald die Nummer eingetragen ist.
 5. In `index.html` die Zeile `<meta name="robots" content="noindex">` entfernen und `robots.txt` auf `Allow: /`
    stellen. Mit eigener Domain `og:image` in `index.html` auf die neue Adresse umstellen.
 6. Offen, zu prüfen: Stripe beschriftet den Bestellknopf mit „Kaufen". Ob das der Button-Lösung (§ 312j Abs. 3 BGB)

@@ -84,6 +84,12 @@ export function saettigung(hexwert) {
   return zuHsl(rgb(hexwert))[1];
 }
 
+/** Farbigkeit (Chroma, 0–1): Abstand zwischen stärkstem und schwächstem Kanal – taugt auch bei sehr hellen Tönen. */
+export function farbigkeit(hexwert) {
+  const c = rgb(hexwert);
+  return (Math.max(...c) - Math.min(...c)) / 255;
+}
+
 /** Helligkeit (0–1). */
 export function helligkeit(hexwert) {
   return zuHsl(rgb(hexwert))[2];
@@ -110,10 +116,42 @@ function lesbar(farbe, grund, ziel) {
 }
 
 /**
- * Die Farben eines Bildschirms: Welt des Anlasses, verschoben durch das Gefühl. Ohne Anlass neutral.
+ * Wie stark die Welt je Schritt durchkommt (Nutzer 2026-09-23: „die volle Farbe erst, wenn man den Screen mit dem Bild
+ * des Straußes sieht"). 0 = neutral, 1 = volle Welt, darüber: der Grund nimmt zusätzlich Farbe der Fläche an.
+ */
+export const STAERKE = { vorschau: 0.25, botschaft: 0.35, strauss: 1.35, warenkorb: 0.8 };
+
+/**
+ * Die Farben eines Bildschirms: Welt des Anlasses, verschoben durch das Gefühl, mit `staerke` (0 … 1,5) zwischen
+ * neutral und voll. Ohne Anlass neutral.
  * → { grund, flaeche, karte, akzent, akzentText, akzentHauch, tinte, bild }
  */
-export function weltFarben(anlassId, gefuehlId) {
+export function weltFarben(anlassId, gefuehlId, staerke = 1) {
+  const voll = weltVoll(anlassId, gefuehlId);
+  const n = WELTEN.neutral;
+  const t = Math.max(0, Math.min(1.5, Number.isFinite(staerke) ? staerke : 1));
+  let { grund, flaeche, karte, akzent, tinte } = voll;
+  if (t < 1) {
+    grund = mischen(n.grund, grund, t);
+    flaeche = mischen(n.flaeche, flaeche, t);
+    karte = mischen(n.karte, karte, t);
+    // Der Akzent erscheint gleich in seiner eigenen Farbe – ein Mischen quer über den Farbkreis (Grün → Koralle) ergäbe
+    // Braun (gemessen 2026-09-23: #855638). Nur die Flächen blenden ein.
+    if (t === 0) akzent = n.akzent;
+    tinte = mischen(n.tinte, tinte, t);
+  } else if (t > 1) {
+    grund = mischen(grund, flaeche, (t - 1) * 1.4); // volle Farbe: der Grund nimmt Fläche an
+  }
+  akzent = lesbar(akzent, karte, 3);
+  const akzentText = lesbar(lesbar(akzent, grund, 4.5), karte, 4.5);
+  return {
+    grund, flaeche, karte, akzent, akzentText, tinte,
+    akzentHauch: mischen(akzent, karte, 0.88),
+    bild: t < 1 ? "none" : voll.bild,
+  };
+}
+
+function weltVoll(anlassId, gefuehlId) {
   const w = WELTEN[anlassId] ?? WELTEN.neutral;
   const g = WIRKUNG[gefuehlId];
   let { grund, flaeche, karte, akzent, tinte } = w;
@@ -128,15 +166,9 @@ export function weltFarben(anlassId, gefuehlId) {
     karte = mischen(karte, "#FFFFFF", Math.max(0, g.hell) * 0.5);
     akzent = hsl(akzent, Math.min(1.4, 0.55 + g.saett * 0.45), -g.tief);
   }
-  // Rahmen und Flächen brauchen ≥ 3:1, Schrift in der Akzentfarbe ≥ 4,5:1 (WCAG AA) – auf Grund und Karte.
-  akzent = lesbar(akzent, karte, 3);
-  const akzentText = lesbar(lesbar(akzent, grund, 4.5), karte, 4.5);
-  return {
-    grund, flaeche, karte, akzent, akzentText, tinte,
-    akzentHauch: mischen(akzent, karte, 0.88),
-    bild: g?.bild ?? (anlassId === "trost" ? "saturate(0.82)" : "none"),
-  };
+  return { grund, flaeche, karte, akzent, tinte, bild: g?.bild ?? (anlassId === "trost" ? "saturate(0.82)" : "none") };
 }
+// Rahmen und Flächen brauchen ≥ 3:1, Schrift in der Akzentfarbe ≥ 4,5:1 (WCAG AA) – auf Grund und Karte (in weltFarben).
 
 // ------------------------------------------------------------------ Sprache je Anlass (Master-Prompt § 9)
 /**

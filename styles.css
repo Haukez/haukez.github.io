@@ -380,3 +380,40 @@ body[data-gefuehl="ausdrucksstark"] .name-preis h2, body[data-gefuehl="froehlich
   body, .box, .opt, .chip, .pc, .fortschritt-teil, .vorschlag-bild img { transition: none !important; }
   .inhalt.einblenden { animation: none !important; }
 }
+
+/* Volle Farbe erst mit dem Bild des Straußes (Nutzer 2026-09-23): langsamer, spürbarer Übergang. */
+body.voll { --welt-tempo: 1.2s; }
+body.voll.leise { --welt-tempo: 1.6s; }
+body.voll .vorschlag, body.voll .produkt-text { background: color-mix(in srgb, var(--welt-karte) 82%, var(--welt-flaeche)); }
+body.voll .produkt-text { padding: 20px; border-radius: 16px; }
+body.voll .vorschlag { border-color: color-mix(in srgb, var(--welt-flaeche) 60%, var(--linie)); }
+
+/* ------------------------------------------------------------------ Leichte Verläufe statt Flächen (Nutzer 2026-09-23)
+   Die Weltfarben sind als <color> registriert – so blenden auch Verläufe weich über, statt zu springen. */
+@property --welt-grund { syntax: "<color>"; inherits: true; initial-value: #F7F3EC; }
+@property --welt-flaeche { syntax: "<color>"; inherits: true; initial-value: #EFE8DD; }
+@property --welt-karte { syntax: "<color>"; inherits: true; initial-value: #FFFDF9; }
+@property --welt-akzent { syntax: "<color>"; inherits: true; initial-value: #2F4A36; }
+@property --welt-akzent-hauch { syntax: "<color>"; inherits: true; initial-value: #EEF2EC; }
+html {
+  transition: --welt-grund var(--welt-tempo) ease, --welt-flaeche var(--welt-tempo) ease, --welt-karte var(--welt-tempo) ease,
+    --welt-akzent var(--welt-tempo) ease, --welt-akzent-hauch var(--welt-tempo) ease;
+}
+body {
+  background: linear-gradient(170deg, var(--welt-grund) 0%, color-mix(in srgb, var(--welt-grund) 62%, var(--welt-flaeche)) 100%) fixed;
+}
+.box, .opt, .rahmen, .vorschlag, .pc, .sz, .dt, .alt {
+  background: linear-gradient(155deg, var(--welt-karte) 0%, color-mix(in srgb, var(--welt-karte) 78%, var(--welt-flaeche)) 100%);
+}
+.opt.an, .chip.an, .sz.an, .dt.an {
+  background: linear-gradient(135deg, var(--welt-akzent-hauch) 0%, color-mix(in srgb, var(--welt-akzent-hauch) 55%, var(--welt-karte)) 100%);
+}
+.termin-box { background: linear-gradient(120deg, var(--welt-akzent-hauch) 0%, color-mix(in srgb, var(--welt-akzent-hauch) 40%, var(--welt-karte)) 100%); }
+.vorschlag-bild, .produkt-bild, .occ img, .pc img { background: linear-gradient(160deg, var(--welt-flaeche), color-mix(in srgb, var(--welt-flaeche) 60%, var(--welt-karte))); }
+.auswahl-chip { background: linear-gradient(135deg, var(--welt-flaeche), color-mix(in srgb, var(--welt-flaeche) 55%, var(--welt-karte))); }
+.demo-banner { background: linear-gradient(100deg, var(--sand), color-mix(in srgb, var(--sand) 45%, var(--welt-karte))); }
+body.voll .vorschlag, body.voll .produkt-text {
+  background: linear-gradient(150deg, var(--welt-karte) 0%, color-mix(in srgb, var(--welt-karte) 55%, var(--welt-flaeche)) 100%);
+}
+.fortschritt-teil { background: linear-gradient(90deg, color-mix(in srgb, var(--welt-akzent) 55%, var(--welt-karte)), var(--welt-akzent)); }
+@media (prefers-reduced-motion: reduce) { html { transition: none !important; } }

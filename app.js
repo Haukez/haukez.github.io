@@ -12,7 +12,7 @@ import {
   preisText, rechtlicheLinks, rueckkehr,
 } from "./logik.js";
 import { aktiveExtras, demoKatalog, extraFinden, finden, GEFUEHLE, groesse as groesseVon, GROESSEN, SAISON_SATZ } from "./sortiment.js";
-import { sprache, weltFarben } from "./welt.js";
+import { sprache, STAERKE, weltFarben } from "./welt.js";
 import { liefertermin, tagText, wocheLesen } from "./woche.js";
 
 const konfig = window.SHOP_KONFIG ?? {};
@@ -112,8 +112,8 @@ function meldung(text, kurz = false) {
  * Die Welt eines Bildschirms (Master-Prompt § 4/§ 5): Farben aus Anlass × Gefühl über das CSSOM, dazu Kennzeichen für
  * Tempo und Typografie (`data-welt`, `data-gefuehl`, `.leise`). Ohne Anlass neutral.
  */
-function welt(anlassId, gefuehlId) {
-  const f = weltFarben(anlassId, gefuehlId);
+function welt(anlassId, gefuehlId, staerke = 1) {
+  const f = weltFarben(anlassId, gefuehlId, staerke);
   const r = document.documentElement.style;
   for (const [k, v] of [["grund", f.grund], ["flaeche", f.flaeche], ["karte", f.karte], ["akzent", f.akzent],
     ["akzent-text", f.akzentText], ["akzent-hauch", f.akzentHauch], ["tinte", f.tinte]]) r.setProperty(`--welt-${k}`, v);
@@ -121,6 +121,7 @@ function welt(anlassId, gefuehlId) {
   document.body.dataset.welt = anlass(anlassId)?.id ?? "";
   document.body.dataset.gefuehl = gefuehlId ?? "";
   document.body.classList.toggle("leise", Boolean(anlass(anlassId)?.leise));
+  document.body.classList.toggle("voll", staerke > 1);
 }
 
 /** Welt des Warenkorbs: die des ersten Straußes (Anlass gemerkt, Gefühl aus dem Katalog). */
@@ -545,10 +546,11 @@ function zeichnen() {
   }
   // Die Welt folgt der Auswahl: Anlass ab Schritt 2, dazu das Gefühl des Vorschlags; der Warenkorb trägt die Welt
   // seines Straußes, die Bestätigung die des letzten Einkaufs. Start, Anlasswahl und Übersicht bleiben neutral.
-  if (z.ansicht === "botschaft") welt(z.auswahl.anlass, null);
-  else if (z.ansicht === "vorschlag" || z.ansicht === "produkt") welt(z.auswahl.anlass, wahl(z.auswahl)?.gefuehl ?? null);
-  else if (z.ansicht === "warenkorb") welt(...korbWelt());
-  else if (rueckkehr(location.search) === "bestellt" && z.ansicht === "start") welt(lesen(LETZTER, null), null);
+  // Stufen (Nutzer 2026-09-23): erst eine Ahnung, die volle Farbe mit dem Bild des Straußes.
+  if (z.ansicht === "botschaft") welt(z.auswahl.anlass, null, STAERKE.botschaft);
+  else if (z.ansicht === "vorschlag" || z.ansicht === "produkt") welt(z.auswahl.anlass, wahl(z.auswahl)?.gefuehl ?? null, STAERKE.strauss);
+  else if (z.ansicht === "warenkorb") welt(...korbWelt(), STAERKE.warenkorb);
+  else if (rueckkehr(location.search) === "bestellt" && z.ansicht === "start") welt(lesen(LETZTER, null), null, STAERKE.warenkorb);
   else welt(null, null);
   const neu = z.ansicht !== letzteAnsicht;
   letzteAnsicht = z.ansicht;
@@ -740,7 +742,7 @@ async function laden() {
   const vorschau = (ev) => {
     if (zustand().ansicht !== "anlass") return;
     const k = ev.target.closest?.("[data-welt-vorschau]");
-    welt(k ? k.dataset.weltVorschau : null, null);
+    welt(k ? k.dataset.weltVorschau : null, null, STAERKE.vorschau);
   };
   document.addEventListener("pointerover", vorschau);
   document.addEventListener("focusin", vorschau);

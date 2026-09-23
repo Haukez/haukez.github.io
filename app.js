@@ -526,10 +526,6 @@ function produktHtml(v, ersetze = null) {
         <div class="termin-box">${ic("kalender")}<span><strong>${esc(terminSatz(a))}</strong></span></div>
         ${knopf}
         <p class="klein unter-knopf">${esc(schlussSatz())}</p>
-        ${waLink() ? `<p class="klein unter-knopf">Lieber etwas ganz Eigenes? ${waAnker(waLink({
-          anlass: v.anlass?.titel ?? "", botschaft: v.absicht?.titel ?? "",
-          vorschlag: `${v.name}${v.produkt !== v.name ? ` (${v.produkt})` : ""}, ${preisText(v.haupt.cent).replace(",00", "")}`, termin: terminSatz(a),
-        }), "Per WhatsApp anfragen")}</p>` : ""}
         <div class="akkordeon">
           <details><summary>Was macht diesen Strauß besonders?</summary><p>${esc(v.gefuehl.text)} ${esc(SAISON_SATZ)}</p></details>
           <details><summary>Wie groß ist er?</summary><p>${GROESSEN.map((g) => `${esc(g.name)}: ${esc(g.satz)}.`).join(" ")} Alle drei werden in derselben Farb- und Stilwelt gebunden – größer heißt mehr Blüten und mehr Fülle.</p></details>
@@ -537,7 +533,12 @@ function produktHtml(v, ersetze = null) {
           <details><summary>Lieferung &amp; Abholung</summary><p>${esc(konfig.abholung || "Abholung in Heide – kostenlos.")} ${katalog.lieferung ? esc(konfig.liefergebiet || "Geliefert wird in Heide und Umgebung, etwa 6 Kilometer weit – mit dem Rad, auf einer Route.") + " " + (lieferText(katalog.liefer) ? `Die Lieferung kostet ${lieferText(katalog.liefer)}.` : "Die Lieferkosten siehst du vor dem Bezahlen.") : ""} ${esc(schlussSatz())} – danach geht es in die Woche darauf.</p></details>
         </div>
       </div>
-    </section>`;
+    </section>
+    ${eigenesHtml(waLink({
+      // Derselbe Kasten wie beim Vorschlag (Nutzer 2026-09-23) – die Nachricht nennt diesen Strauß und den Termin.
+      anlass: v.anlass?.titel ?? "", botschaft: v.absicht?.titel ?? "",
+      vorschlag: `${v.name}${v.produkt !== v.name ? ` (${v.produkt})` : ""}, ${preisText(v.haupt.cent).replace(",00", "")}`, termin: terminSatz(a),
+    }))}`;
 }
 
 function korbZeilenHtml() {

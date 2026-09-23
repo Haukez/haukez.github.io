@@ -608,3 +608,6 @@ body:not([data-ansicht="start"]) .kopf { transition: border-color .25s ease, bac
   .eigenes-herz { right: 0; top: 50px; width: 18px; height: 16px; }
   .eigenes-pfeil { right: 26px; top: 56px; width: 48px; height: 58px; }
 }
+/* Punkte: nur so viele Spalten, wie Platz ist (gemessen 960 px: 104 px je Spalte, „Unverbindlich“ ragte 33 px bis in
+   die Trennlinie). Mindestens 150 px je Punkt, sonst umbrechen. */
+@media (min-width: 600px) { .eigenes-punkte { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } }

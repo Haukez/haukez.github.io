@@ -7,8 +7,17 @@
   <meta name="robots" content="noindex">
   <!-- Nur eigene Dateien; Bilder und Katalog kommen vom eigenen Worker (https). Bezahlt wird bei Stripe (Weiterleitung). -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' https: http://127.0.0.1:* http://localhost:* data:; connect-src https: http://127.0.0.1:* http://localhost:*; form-action 'none'; base-uri 'none'; object-src 'none'">
-  <title>Shop</title>
-  <meta name="description" content="Blumen für besondere Momente – sag, was du ausdrücken möchtest, und finde den passenden Strauß.">
+  <title>Ela – Floristik aus Heide</title>
+  <meta name="description" content="Sträuße aus Heide, jede Woche frisch von Hand gebunden. Sag, was die Blumen sagen sollen – Ela schlägt dir den passenden Strauß vor. Abholung in Heide, Lieferung in Heide und Umgebung.">
+  <meta name="theme-color" content="#2F4A36">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <!-- Vorschau-Karte beim Teilen. Die Adresse gilt für die heutige Seite; mit eigener Domain hier und in robots.txt
+       anpassen (Spec 2026-09-23-kaufseite-schaerfen § 4). -->
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="de_DE">
+  <meta property="og:title" content="Ela – Floristik aus Heide">
+  <meta property="og:description" content="Sag, was die Blumen sagen sollen – jede Woche frisch von Hand gebunden in Heide.">
+  <meta property="og:image" content="https://haukez.github.io/bilder/held_breit.jpg">
   <link rel="stylesheet" href="styles.css">
   <script src="config.js"></script>
   <script type="module" src="app.js"></script>
@@ -22,8 +31,8 @@
       <span class="marke-zeile" id="shop-unterzeile"></span>
     </a>
     <nav class="kopf-nav" aria-label="Hauptnavigation">
-      <a class="nav" href="#anlass" data-ziel="anlass">Blumen schenken</a>
-      <a class="nav" href="#uebersicht" data-ziel="uebersicht">Für mich</a>
+      <a class="nav nav-lang" href="#anlass" data-ziel="anlass">Strauß finden</a>
+      <a class="nav" href="#uebersicht" data-ziel="uebersicht">Alle Sträuße</a>
     </nav>
     <a class="icb warenkorb-knopf" href="#warenkorb" data-ziel="warenkorb" id="warenkorb-knopf" aria-label="Warenkorb" hidden>
       <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>

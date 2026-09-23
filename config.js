@@ -8,7 +8,7 @@ window.SHOP_KONFIG = {
   demo: true,
   /** Name und Unterzeile oben auf der Seite – wie im Entwurf des Nutzers vom 2026-09-23 (Marke offen, Konzept O9). */
   name: "Ela",
-  unterzeile: "Blumen für besondere Momente",
+  unterzeile: "Floristik aus Heide",
   /**
    * Rhythmus der Woche, solange der Worker keinen liefert (Compass sendet ihn unter Aufträge › Diese Woche).
    * Wochentage 1 = Montag … 7 = Sonntag. Leer = Standard: Bestellschluss Mittwoch 12 Uhr, Abholung Freitag ab 17 Uhr,
@@ -24,9 +24,16 @@ window.SHOP_KONFIG = {
   extras: ["karte"],
   /** Nur für die Vorschau: gibt es Lieferung? (Im Shop entscheidet der Worker über SHOP_LIEFERUNG.) */
   lieferung: true,
-  /** Sätze zu Abholung und Liefergebiet – leer = die ruhigen Standardsätze. */
+  /** Sätze zu Abholung und Liefergebiet – leer = die ruhigen Standardsätze. `abholung` erscheint auch im Fuß. */
   abholung: "",
   liefergebiet: "",
+  /** Kontakt im Fuß und in der Bestätigung – leer = nicht gezeigt (nichts erfinden). */
+  kontakt: { email: "", telefon: "" },
+  /**
+   * Ela auf der Startseite: ein eigenes Foto (Datei neben dieser, z. B. "ela.jpg") und drei Zeilen von ihr. Erst wenn
+   * beides gesetzt ist, erscheint der Abschnitt (Spec 2026-09-23-kaufseite-schaerfen § 2).
+   */
+  ela: { foto: "", text: "" },
   /**
    * Rechtstexte – eigene Seiten neben dieser (z. B. "impressum.html") oder https-Adressen. Stripe liefert keine.
    * Erst wenn alle fünf gesetzt sind, öffnet der Shop.

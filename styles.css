@@ -417,3 +417,67 @@ body.voll .vorschlag, body.voll .produkt-text {
 }
 .fortschritt-teil { background: linear-gradient(90deg, color-mix(in srgb, var(--welt-akzent) 55%, var(--welt-karte)), var(--welt-akzent)); }
 @media (prefers-reduced-motion: reduce) { html { transition: none !important; } }
+
+/* Seitenwechsel (Nutzer 2026-09-23 „angenehmer Seitenwechsel"): die neue Seite blendet über der stehenden alten ein –
+   kein Aufblitzen des Hintergrunds dazwischen; der Kopf ist eine eigene Ebene und bleibt ruhig. */
+.kopf { view-transition-name: kopf; }
+::view-transition-old(root), ::view-transition-new(root) { mix-blend-mode: normal; }
+::view-transition-old(root) { animation: none; }
+::view-transition-new(root) { animation: seite-ein .38s cubic-bezier(.2, .7, .3, 1) both; }
+::view-transition-group(kopf) { animation-duration: .38s; }
+@keyframes seite-ein { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+
+/* Startseite: das Bühnenbild bewegt sich nie (Nutzer 2026-09-23 „das bild auf der startseite nicht bewegen") – beim
+   Einblenden nur Deckkraft, kein Versatz. Gemessen vorher: Bild glitt von 6 px auf 0. */
+body[data-ansicht="start"] .inhalt.einblenden { animation-name: nur-blenden; }
+@keyframes nur-blenden { from { opacity: 0; } }
+
+/* ------------------------------------------------------------------ Geschärft (Spec 2026-09-23-kaufseite-schaerfen) */
+/* Kopf: die Navigation bleibt auch auf dem Handy – zwei kurze Links statt Menü. */
+@media (max-width: 520px) {
+  .kopf-nav { display: flex; gap: 14px; font-size: 15px; }
+  .marke .logo { font-size: 40px; }
+}
+@media (max-width: 360px) {
+  .kopf-nav .nav-lang { display: none; }
+}
+/* Start: zweiter Einstieg und der Rhythmus der Woche als eigene Zeile */
+.buehne-knoepfe { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; }
+.buehne-link { color: #FFFDF9; font-size: 16px; text-underline-offset: 4px; }
+.buehne-link:hover { color: #FFFDF9; }
+.buehne-termin { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 10px; background: rgb(33 24 17 / .38); color: #FFFDF9; font-size: 15px; line-height: 1.4; }
+.buehne-termin .ic { flex: none; }
+.ela { display: grid; gap: 20px; align-items: center; max-width: 880px; margin: 40px auto 0; }
+.ela img { width: 100%; max-width: 280px; height: auto; border-radius: 12px; }
+.ela h2 { font-size: 30px; margin: 0 0 8px; }
+.ela p { margin: 0; font-size: 18px; line-height: 1.55; }
+@media (min-width: 700px) { .ela { grid-template-columns: 280px 1fr; gap: 36px; } }
+/* Stabiler Produktname unter dem Beratungsnamen */
+.produktzeile { margin: 4px 0 0; font-size: 14px; letter-spacing: .06em; text-transform: uppercase; color: var(--welt-akzent-text, var(--leise)); }
+/* Größen mit Preis und Größenhilfe */
+.groessen.drei .sz { align-items: stretch; text-align: left; padding: 10px 14px; }
+.sz-kopf { display: flex; justify-content: space-between; gap: 10px; font-weight: 500; }
+.sz-satz { font-size: 13px; color: var(--leise); }
+/* Bestellwoche */
+.woche-wahl { display: flex; flex-direction: column; gap: 6px; }
+.woche-wahl select { min-height: 48px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--linie2); background: var(--welt-karte, #FFFDF9); color: var(--tinte); font: inherit; font-size: 15px; max-width: 100%; }
+.woche-wahl select:focus-visible { outline: 2px solid var(--welt-akzent, #2F4A36); outline-offset: 2px; }
+.unter-knopf { margin: -4px 0 0; text-align: center; }
+.rechtliches a { color: inherit; }
+.fuss-kontakt { display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
+/* Elas echte Fotos bleiben farbecht – die Welt tönt nur Beispielbilder (Review 2026-09-23). */
+img.echt { filter: none !important; }
+/* Reduzierte Bewegung: auch Farbübergänge und Hover-Verschiebungen aus (Review 2026-09-23). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
+  .occ:hover, .pc:hover, .opt:hover { transform: none !important; }
+}
+/* Handy: Größen als Liste, Name und Preis untereinander (gemessen 375 px: 2 + 1 umgebrochen, Hinweis gequetscht). */
+@media (max-width: 520px) {
+  .groessen.drei { display: grid; grid-template-columns: 1fr; }
+  .name-preis { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .name-preis .preis { text-align: left; }
+}

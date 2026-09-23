@@ -35,6 +35,11 @@ function wochentag(ms) {
   return w === 0 ? 7 : w;
 }
 
+/** Montag der Woche eines Kalendertags. */
+export function montagVon(ms) {
+  return ms - (wochentag(ms) - 1) * TAG_MS;
+}
+
 /** Letzter Sonntag eines Monats, 01:00 UTC – Beginn bzw. Ende der Sommerzeit in der EU. */
 function letzterSonntag01Utc(j, m) {
   let t = Date.UTC(j, m, 0); // letzter Tag des Monats m
@@ -98,10 +103,12 @@ function pausenLesen(liste) {
 
 /**
  * Liefer-Woche einer Bestellung zum Zeitpunkt `jetztMs` (UTC).
+ * `wunsch` (optional, "JJJJ-MM-TT"): die gewünschte Woche (Spec 2026-09-23-kaufseite-schaerfen § 3) – gesucht wird ab
+ * der späteren von frühester und gewünschter Woche; ein Wunsch vor dem Bestellschluss ändert nichts.
  * → { bestellschluss, abholung, route, uebersprungen, grund } – Tage als "JJJJ-MM-TT"; `grund` des ersten
  *   übersprungenen Termins: "feiertag" | "pause" | null. Nach 52 Wochen ohne Termin: abholung/route = null.
  */
-export function liefertermin(jetztMs, wocheRoh) {
+export function liefertermin(jetztMs, wocheRoh, wunsch = null) {
   const w = wocheLesen(wocheRoh);
   const pausen = w.pausen.map((p) => ({ von: ausIso(p.von), bis: ausIso(p.bis) }));
   const in_pause = (ms) => pausen.some((p) => ms >= p.von && ms <= p.bis);
@@ -109,6 +116,8 @@ export function liefertermin(jetztMs, wocheRoh) {
   let montag = b.tag - (wochentag(b.tag) - 1) * TAG_MS;
   const vorSchluss = wochentag(b.tag) < w.schluss_tag || (wochentag(b.tag) === w.schluss_tag && b.stunde < w.schluss_stunde);
   if (!vorSchluss) montag += 7 * TAG_MS;
+  const w0 = ausIso(wunsch);
+  if (w0 !== null) montag = Math.max(montag, montagVon(w0));
   let grund = null;
   for (let k = 0; k < WOCHEN_MAX; k++, montag += 7 * TAG_MS) {
     let abholung = montag + (w.abhol_tag - 1) * TAG_MS;
@@ -130,6 +139,26 @@ export function liefertermin(jetztMs, wocheRoh) {
     };
   }
   return { bestellschluss: null, abholung: null, route: null, uebersprungen: WOCHEN_MAX, grund };
+}
+
+/** So viele Wochen darf man im Voraus wählen (Spec 2026-09-23-kaufseite-schaerfen § 3; der Worker prüft 9). */
+export const WAHL_WOCHEN = 8;
+
+/**
+ * Die nächsten `n` möglichen Termine zum Auswählen, jeweils mit `montag` der Woche (Pausen und ausgefallene Wochen
+ * fehlen). Der erste ist der früheste.
+ */
+export function wochenWahl(jetztMs, wocheRoh, n = WAHL_WOCHEN) {
+  const aus = [];
+  let wunsch = null;
+  for (let i = 0; i < n; i++) {
+    const t = liefertermin(jetztMs, wocheRoh, wunsch);
+    if (!t.abholung) break;
+    const montag = montagVon(ausIso(t.bestellschluss));
+    aus.push({ ...t, montag: isoTag(montag) });
+    wunsch = isoTag(montag + 7 * TAG_MS);
+  }
+  return aus;
 }
 
 const TAGE = ["", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];

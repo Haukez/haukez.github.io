@@ -3,17 +3,22 @@
 //
 // Ansichten (Zustand im URL-Hash, „Zurück" im Browser geht einen Schritt zurück):
 //   Start · Anlass („Wofür sind die Blumen?") · Botschaft (+ Preisrahmen) · Vorschlag mit Varianten · Produkt ·
-//   Warenkorb · Bestätigung (Rückkehr von Stripe) · Übersicht („Für mich").
+//   Warenkorb · Bestätigung (Rückkehr von Stripe) · Alle Sträuße · Strauß ohne Anlass (`#strauss=…`).
+// Geschärft nach der Review vom 2026-09-23 (docs/specs/2026-09-23-kaufseite-schaerfen.md).
 // Modi: „bald" (keine Anfrage) · „demo" (alles zeigen, Kasse gesperrt, keine Anfrage) · „shop"/„vorschau" (Worker).
 // CSP ohne 'unsafe-inline': keine style-Attribute – Farben setzt JS über das CSSOM (`farbenSetzen`).
-import { anlass, ANLAESSE, auswahlAusHash, bildPfad, hashAusAuswahl, PREISRAHMEN, schritt, vorschlag, wahl } from "./beratung.js";
+import {
+  anlass, ANLAESSE, auswahlAusHash, bildPfad, hashAusAuswahl, hashAusStrauss, PREISRAHMEN, schritt, strauss, straussAusHash, vorschlag, wahl,
+} from "./beratung.js";
 import {
   kassenAnfrage, kasseErlaubt, korbAnzahl, korbBereinigen, korbHinzu, korbLesen, korbSetzen, korbSumme, MENGE_MAX, modus,
   preisText, rechtlicheLinks, rueckkehr,
 } from "./logik.js";
-import { aktiveExtras, demoKatalog, extraFinden, finden, GEFUEHLE, groesse as groesseVon, GROESSEN, SAISON_SATZ } from "./sortiment.js";
+import {
+  aktiveExtras, demoKatalog, extraFinden, finden, FOTO_SATZ, gefuehl as gefuehlVon, GEFUEHLE, groesse as groesseVon, GROESSEN, SAISON_SATZ,
+} from "./sortiment.js";
 import { sprache, STAERKE, weltFarben } from "./welt.js";
-import { liefertermin, tagText, wocheLesen } from "./woche.js";
+import { liefertermin, tagText, wocheLesen, wochenWahl } from "./woche.js";
 
 const konfig = window.SHOP_KONFIG ?? {};
 const m = modus(konfig, location.search);
@@ -24,6 +29,7 @@ const ART = "shop-art";
 const KARTE = "shop-karte";
 const KARTE_MAX = 200;
 const LETZTER = "shop-letzter-anlass";
+const WOCHE_WAHL = "shop-woche";
 const TAGE = ["", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
 const TAGE_KURZ = ["", "Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
@@ -35,6 +41,10 @@ let katalog = { artikel: [], lieferung: false, woche: null };
 let korb = [];
 /** Entwurf auf der Seite „Botschaft" – erst „Vorschlag ansehen" schreibt ihn in den Hash. */
 let entwurf = { absicht: null, preis: null };
+/** Die letzte Auswahl eines Vorschlags – „Zurück" zur Botschaft desselben Anlasses zeigt sie wieder an. */
+let letzteAuswahl = null;
+/** Nach der Rückkehr von Stripe: `{ daten }` (Daten vom Worker oder null) – nur bis zum nächsten Seitenwechsel. */
+let bestellt = null;
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
@@ -149,8 +159,16 @@ function woche() {
   return wocheLesen(katalog.woche ?? konfig.woche);
 }
 
+/** Die wählbaren Wochen (Spec 2026-09-23-kaufseite-schaerfen § 3) – die erste ist die früheste. */
+function wahlListe() {
+  return wochenWahl(Date.now(), woche());
+}
+
+/** Termin der gewählten Woche; eine veraltete Wahl fällt still auf den frühesten zurück. */
 function termin() {
-  return liefertermin(Date.now(), woche());
+  const l = wahlListe();
+  const w = lesen(WOCHE_WAHL, null);
+  return l.find((x) => x.montag === w) ?? l[0] ?? liefertermin(Date.now(), woche());
 }
 
 function kurz(iso) {
@@ -162,19 +180,52 @@ function kurz(iso) {
 }
 
 /** „Abholung Fr 25.09. ab 17 Uhr" bzw. „Lieferung Sa 26.09. (9 bis 12 Uhr)" */
-function terminSatz(a = art()) {
-  const t = termin();
+/** Die Teile eines Termins: „Mi 23.09., 12 Uhr" · „Fr 25.09. ab 17 Uhr" · „Sa 26.09., 9 bis 12 Uhr". */
+function teile(t) {
   const w = woche();
-  if (!t.abholung) return "Gerade gibt es keinen Termin – schau bald wieder vorbei.";
-  return a === "lieferung"
-    ? `Lieferung ${kurz(t.route)}${w.route_zeit && t.route !== t.abholung ? ` (${w.route_zeit})` : ""}`
-    : `Abholung ${kurz(t.abholung)}${w.abhol_ab ? ` ab ${w.abhol_ab.replace(/^ab\s+/i, "")}` : ""}`;
+  if (!t?.abholung) return null;
+  return {
+    schluss: `${kurz(t.bestellschluss)}, ${w.schluss_stunde} Uhr`,
+    abholung: `${kurz(t.abholung)}${w.abhol_ab ? ` ab ${w.abhol_ab.replace(/^ab\s+/i, "")}` : ""}`,
+    // Verlegte Route (Feiertag): ohne die übliche Uhrzeit – die gilt nur am Routentag.
+    route: `${kurz(t.route)}${w.route_zeit && t.route !== t.abholung ? `, ${w.route_zeit}` : ""}`,
+  };
 }
 
-function schlussSatz() {
-  const t = termin();
-  const w = woche();
-  return t.bestellschluss ? `Bis ${kurz(t.bestellschluss)}, ${w.schluss_stunde} Uhr bestellen` : "";
+const KEIN_TERMIN = "Gerade gibt es keinen Termin – schau bald wieder vorbei.";
+
+/** „Abholung: Fr 25.09. ab 17 Uhr" bzw. „Lieferung: Sa 26.09., 9 bis 12 Uhr" */
+function terminSatz(a = art(), t = termin()) {
+  const x = teile(t);
+  if (!x) return KEIN_TERMIN;
+  return a === "lieferung" ? `Lieferung: ${x.route}` : `Abholung: ${x.abholung}`;
+}
+
+/** Beide Wege nebeneinander: „Abholung: … · Lieferung: …" */
+function beideSatz(t = termin()) {
+  const x = teile(t);
+  if (!x) return KEIN_TERMIN;
+  return `Abholung: ${x.abholung}${katalog.lieferung ? ` · Lieferung: ${x.route}` : ""}`;
+}
+
+function schlussSatz(t = termin()) {
+  const x = teile(t);
+  return x ? `Bestellbar bis ${x.schluss}` : "";
+}
+
+/** Auswahl der Woche („Für welche Woche?") – natives select, damit Tastatur und Screenreader es kennen. */
+function wochenWahlHtml() {
+  const l = wahlListe();
+  if (l.length < 2) return "";
+  const an = termin().montag;
+  return `<label class="woche-wahl"><span class="feld-titel">Für welche Woche?</span>
+      <select data-woche>${l.map((t, i) => {
+        const x = teile(t);
+        const vorn = i === 0 ? "Nächster Termin" : `Woche ab ${kurz(t.montag)}`;
+        return `<option value="${esc(t.montag)}"${t.montag === an ? " selected" : ""}>${esc(`${vorn} – Abholung ${x.abholung}${katalog.lieferung ? ` · Lieferung ${x.route}` : ""}`)}</option>`;
+      }).join("")}</select>
+      <span class="klein">Du kannst schon jetzt für einen späteren Anlass bestellen – bis zu ${l.length} Wochen im Voraus.</span>
+    </label>`;
 }
 
 /** Elas Foto aus dem Katalog vor dem Beispielbild der Anlasswelt. */
@@ -186,17 +237,23 @@ function bild(artikel, anlassId) {
   return { src: bildPfad(anlass(a).gefuehle.includes(g) ? a : "einfach", g), beispiel: true };
 }
 
-const BEISPIEL = "Beispielbild – jeder Strauß wird saisonal gebunden und ist ein Unikat.";
+const BEISPIEL = `Beispielbild. ${FOTO_SATZ}`;
+
+/** Bild eines Straußes: Elas Foto bleibt unverfälscht (`echt`, kein Farbfilter der Welt), Beispielbilder dürfen tönen. */
+function bildHtml(b, alt, breite = 1152, hoehe = 1600) {
+  return `<img src="${esc(b.src)}"${b.beispiel ? "" : ` class="echt"`} alt="${esc(alt)}" width="${breite}" height="${hoehe}">`;
+}
 
 // ------------------------------------------------------------------ Bausteine
 function banner() {
   return m.art === "demo" ? `<p class="demo-banner" role="note">Vorschau – so wird der Shop aussehen. Bestellen geht noch nicht.</p>` : "";
 }
 
-/** Fortschritt wie im Entwurf: „1 / 3" mit Balken. */
+/** Fortschritt wie im Entwurf: „1 / 3 · Anlass" mit Balken – nur die drei Beratungsschritte. */
 function fortschritt(i) {
-  return `<div class="fortschritt" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="${i}" aria-label="Schritt ${i} von 3">
-      <span>${i} / 3</span><span class="fortschritt-bahn"><span class="fortschritt-teil" data-anteil="${i / 3}"></span></span>
+  const was = ["", "Anlass", "Botschaft", "Dein Vorschlag"][i];
+  return `<div class="fortschritt" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="${i}" aria-label="Schritt ${i} von 3: ${was}">
+      <span>${i} / 3 · ${was}</span><span class="fortschritt-bahn"><span class="fortschritt-teil" data-anteil="${i / 3}"></span></span>
     </div>`;
 }
 
@@ -216,24 +273,33 @@ function preisVon(groesseId) {
 // ------------------------------------------------------------------ Ansichten
 function startHtml() {
   // Die Startseite nach dem Entwurf des Nutzers (2026-09-23): ein Bild über die ganze Breite, Kopf und Text darüber.
-  const t = termin();
+  // Texte nach der Review vom 2026-09-23: konkret statt „mit viel Liebe", der Rhythmus als eigene Zeile.
+  const x = teile(liefertermin(Date.now(), woche()));
   const dritter = katalog.lieferung ? ["lieferung", "Lieferung in Heide & Umgebung"] : ["laden", "Abholung in Heide"];
+  const ela = konfig.ela && typeof konfig.ela.foto === "string" && konfig.ela.foto && typeof konfig.ela.text === "string" && konfig.ela.text;
   return `<section class="buehne">
       <img class="buehne-bild" src="bilder/held_breit.jpg" alt="Wiesenstrauß mit rosa Dahlien und Schmuckkörbchen in einer Keramikkanne auf einem Holztisch" width="1648" height="1024">
       <div class="buehne-inhalt">
         ${m.art === "demo" ? `<p class="buehne-hinweis" role="note">Vorschau – bestellen geht noch nicht</p>` : ""}
-        <h1 class="d buehne-satz">Was möchtest du jemandem fühlen lassen?</h1>
-        <p class="buehne-unter">Blumen sagen oft mehr, als man selbst die richtigen Worte findet.</p>
-        <a class="btn-hell" href="#anlass">Zum passenden Strauß${ic("pfeil")}</a>
-        ${t.abholung ? `<p class="buehne-termin">${esc(schlussSatz())} – ${esc(terminSatz("abholung"))}</p>` : ""}
+        <h1 class="d buehne-satz">Was sollen die Blumen sagen?</h1>
+        <p class="buehne-unter">Sag mir, was du ausdrücken möchtest – ich finde den passenden Strauß für dich.</p>
+        <div class="buehne-knoepfe">
+          <a class="btn-hell" href="#anlass">Zum passenden Strauß${ic("pfeil")}</a>
+          <a class="buehne-link" href="#uebersicht">Ich weiß schon, was ich möchte – Alle Sträuße</a>
+        </div>
+        ${x ? `<p class="buehne-termin">${ic("kalender")}<span>Bestellen bis <strong>${esc(x.schluss)}</strong> · Abholung ${esc(x.abholung)}${katalog.lieferung ? ` · Lieferung ${esc(x.route)}` : ""}</span></p>` : ""}
       </div>
       <ul class="buehne-versprechen" aria-label="Das zeichnet ${esc(konfig.name || "uns")} aus">
-        <li>${ic("blatt")}Regional aus Heide</li>
-        <li>${ic("herz")}Mit viel Liebe gebunden</li>
+        <li>${ic("blatt")}In Heide von Hand gebunden</li>
+        <li>${ic("herz")}Jede Woche frisch</li>
         <li>${ic(dritter[0])}${esc(dritter[1])}</li>
       </ul>
       <span class="logo buehne-zug" aria-hidden="true">Mehr<br>als Blumen</span>
-    </section>`;
+    </section>
+    ${ela ? `<section class="ela">
+      <img src="${esc(konfig.ela.foto)}" alt="${esc(konfig.name || "")}" width="480" height="600" loading="lazy">
+      <div><h2 class="d">Hallo, ich bin ${esc(konfig.name || "")}.</h2><p>${esc(konfig.ela.text)}</p></div>
+    </section>` : ""}`;
 }
 
 function anlassHtml() {
@@ -250,7 +316,8 @@ function anlassHtml() {
       </a>`).join("")}</div>
     <div class="trenner"><span></span><span>Oder suchst du etwas anderes?</span><span></span></div>
     <div class="alternativen-kacheln">
-      <a class="alt" href="#uebersicht">${ic("haus", "ic gross")}<span><strong>Für mich</strong><span>Blumen für dein eigenes Zuhause</span></span>${ic("pfeil")}</a>
+      <a class="alt" href="#uebersicht">${ic("stern", "ic gross")}<span><strong>Etwas anderes</strong><span>Geburt, Genesung, Einzug … such dir eine Stimmung aus</span></span>${ic("pfeil")}</a>
+      <a class="alt" href="${esc(hashAusAuswahl({ anlass: "einfach", absicht: "alltag" }))}">${ic("haus", "ic gross")}<span><strong>Für mich / fürs Zuhause</strong><span>Blumen für deinen Tisch</span></span>${ic("pfeil")}</a>
     </div>`;
 }
 
@@ -277,8 +344,9 @@ function botschaftHtml(w) {
         <legend>Preisrahmen <span>(optional)</span></legend>
         <div class="chips">${PREISRAHMEN.map((p) => {
           const cent = p.groesse ? preisVon(p.groesse) : null;
-          return `<button type="button" class="chip${entwurf.preis === p.id ? " an" : ""}" aria-pressed="${entwurf.preis === p.id}" data-preis="${p.id}">${esc(p.label(cent != null ? preisText(cent) : ""))}</button>`;
+          return `<button type="button" class="chip${entwurf.preis === p.id ? " an" : ""}" aria-pressed="${entwurf.preis === p.id}" data-preis="${p.id}">${esc(p.label(cent != null ? preisText(cent).replace(",00", "") : ""))}</button>`;
         }).join("")}</div>
+        ${passtHtml(a, gewaehlt)}
       </fieldset>
       <div class="knopfreihe rechts">
         <button type="button" class="btn" data-vorschlag${gewaehlt ? "" : " disabled"}>Vorschlag ansehen${ic("pfeil")}</button>
@@ -286,10 +354,38 @@ function botschaftHtml(w) {
     </div>`;
 }
 
+/** „Abholung kostenlos" – bei Lieferung ohne erfundenen Betrag: den zeigt Stripe vor dem Bezahlen (Lieferpreis offen). */
+function preisHinweis() {
+  return katalog.lieferung ? "Abholung kostenlos · Lieferkosten siehst du vor dem Bezahlen" : "Abholung kostenlos";
+}
+
+/** Größen als Radiogruppe mit Preis und Größenhilfe – `bleiben`: die Adresse wird ersetzt, nicht gestapelt. */
+function groessenHtml(v) {
+  return `<div role="radiogroup" aria-label="Größe" class="groessen drei">${GROESSEN.map((g) => {
+    const x = finden(katalog.artikel, v.gefuehl.id, g.id);
+    if (!x) return "";
+    const an = g.id === v.groesse.id;
+    return `<button type="button" class="sz${an ? " an" : ""}" role="radio" aria-checked="${an}" data-groesse="${g.id}"><span class="sz-kopf"><span>${esc(g.name)}</span><span>${esc(preisText(x.cent))}</span></span><span class="sz-satz">${esc(g.satz)}</span></button>`;
+  }).join("")}</div>`;
+}
+
+/** Was die gewählte Botschaft für die Größe heißt – damit die Reihenfolge Botschaft → Preisrahmen sichtbar Sinn ergibt. */
+function passtHtml(a, absichtId) {
+  const ab = a.absichten.find((x) => x.id === absichtId);
+  const g = ab && groesseVon(ab.groesse);
+  const rahmen = ab && PREISRAHMEN.find((p) => p.groesse === ab.groesse);
+  const cent = ab && preisVon(ab.groesse);
+  if (!g || !rahmen || cent == null) return "";
+  const anders = entwurf.preis && entwurf.preis !== "egal" && entwurf.preis !== rahmen.id;
+  return `<p class="klein passt" aria-live="polite">${anders
+    ? `Dein Preisrahmen bestimmt die Größe – zu „${esc(ab.titel)}“ hätte „${esc(g.name)}“ (${esc(preisText(cent).replace(",00", ""))}) gepasst.`
+    : `Zu „${esc(ab.titel)}“ passt „${esc(g.name)}“ (${esc(preisText(cent).replace(",00", ""))}). Wählst du einen anderen Rahmen, richtet sich die Größe danach.`}</p>`;
+}
+
 function vorschlagHtml(v) {
   const b = bild(v.haupt, v.anlass.id);
-  const rahmen = PREISRAHMEN.find((p) => p.id === v.auswahl.preis);
-  const chips = [v.anlass.titel, v.absicht.titel, rahmen && rahmen.id !== "egal" ? rahmen.label(preisText(preisVon(rahmen.groesse))) : null].filter(Boolean);
+  // Nur ein Preisrahmen, der die Größe noch bestimmt, steht als Chip da – nach einer Größe von Hand nicht mehr.
+  const chips = [v.anlass.titel, v.absicht.titel, v.rahmen && v.rahmen.id !== "egal" ? v.rahmen.label(preisText(preisVon(v.rahmen.groesse)).replace(",00", "")) : null].filter(Boolean);
   const anpassen = [["ruhiger", "Etwas ruhiger", "gefuehl"], ["wilder", "Etwas wilder", "gefuehl"], ["groesser", "Etwas größer", "groesse"], ["guenstiger", "Etwas günstiger", "groesse"]]
     .filter(([k]) => v[k]).map(([k, text, feld]) => `<button type="button" class="chip" data-${feld}="${v[k]}">${text}</button>`).join("");
   return `${banner()}
@@ -299,70 +395,69 @@ function vorschlagHtml(v) {
     <div class="titelzeile"><h1 class="d seitentitel">Mein Vorschlag für dich</h1><span class="logo welt-zug" aria-hidden="true">${esc(sprache(v.anlass.id).zug)}</span></div>
     <section class="vorschlag">
       <figure class="vorschlag-bild">
-        <img src="${esc(b.src)}" alt="Strauß ${esc(v.name)}" width="1152" height="1600">
+        ${bildHtml(b, `Strauß ${v.name}`)}
         ${b.beispiel ? `<figcaption>${esc(BEISPIEL)}</figcaption>` : ""}
       </figure>
       <div class="vorschlag-text">
         <div class="name-preis">
-          <h2 class="d">${esc(v.name)}</h2>
-          <div class="preis"><span class="d">${esc(preisText(v.haupt.cent))}</span><span>zzgl. Lieferung</span></div>
+          <div><h2 class="d">${esc(v.name)}</h2><p class="produktzeile">${esc(v.produkt)}</p></div>
+          <div class="preis"><span class="d">${esc(preisText(v.haupt.cent))}</span><span>${esc(preisHinweis())}</span></div>
         </div>
-        <p class="beschreibung">${esc(v.text)}</p>
-        <p class="weil">${esc(v.erklaerung)}</p>
-        <div class="groesse-zeile"><span>Größe: <strong>${esc(v.groesse.name)}</strong> · ${esc(v.groesse.satz)}</span><a href="${esc(hashAusAuswahl(v.auswahl, "produkt"))}">Größe ändern</a></div>
-        <div class="termin-box">${ic("kalender")}<span>${esc(terminSatz("abholung"))}${katalog.lieferung ? ` · ${esc(terminSatz("lieferung"))}` : ""}</span></div>
+        <p class="weil">${esc(v.erklaerung)}${v.groesseSatz ? ` ${esc(v.groesseSatz)}` : ""}</p>
+        <div class="feld"><div class="feld-titel">Größe</div>${groessenHtml(v)}</div>
+        <div class="termin-box">${ic("kalender")}<span>${esc(beideSatz())}<br><span class="klein">${esc(schlussSatz())}</span></span></div>
         <ul class="merkmale">
-          <li>${ic("blatt")}Saisonal gebunden – jeder Strauß ist ein Unikat</li>
-          <li>${ic("herz")}Mit Liebe gebunden, Grußkarte auf Wunsch</li>
+          <li>${ic("blatt")}${esc(b.beispiel ? SAISON_SATZ.split(":")[0] + " – die Blumen wechseln mit der Saison" : FOTO_SATZ)}</li>
+          <li>${ic("herz")}Von Hand gebunden, Grußkarte auf Wunsch</li>
           <li>${ic(katalog.lieferung ? "lieferung" : "laden")}${katalog.lieferung ? "Lieferung in Heide &amp; Umgebung oder Abholung" : "Abholung in Heide"}</li>
         </ul>
         <div class="knopfreihe unten">
-          <button type="button" class="btn breit" data-rein="${esc(v.haupt.preis_id)}">In den Warenkorb${ic("pfeil")}</button>
+          <button type="button" class="btn breit" data-rein="${esc(v.haupt.preis_id)}">${esc(v.groesse.name)} · ${esc(preisText(v.haupt.cent))} in den Warenkorb${ic("pfeil")}</button>
           <a class="btn2" href="${esc(hashAusAuswahl(v.auswahl, "produkt"))}">Details</a>
         </div>
       </div>
     </section>
     <section class="varianten">
       <div class="varianten-kopf">
-        <div><h2 class="d">Noch nicht ganz deins?</h2><p>Hier sind ein paar Varianten für denselben Anlass.</p></div>
+        <div><h2 class="d">Möchtest du eine andere Richtung?</h2><p>Hier sind ein paar Varianten für denselben Anlass.</p></div>
         ${zurueckLink("#anlass", "Von vorn beginnen")}
       </div>
       ${anpassen ? `<div class="chips" role="group" aria-label="Vorschlag anpassen">${anpassen}</div>` : ""}
       <div class="karten3">${v.varianten.map((x) => {
         const bx = bild(x.artikel, v.anlass.id);
         return `<button type="button" class="pc" data-gefuehl="${x.gefuehl}">
-          <img src="${esc(bx.src.replace("bilder/", "bilder/klein/"))}" alt="Strauß ${esc(x.name)}" loading="lazy" width="560" height="778">
-          <span class="pc-text"><span class="d">${esc(x.name)}</span><span>${esc(preisText(x.artikel.cent))}</span></span>
+          <img src="${esc(bx.src.replace("bilder/", "bilder/klein/"))}"${bx.beispiel ? "" : ` class="echt"`} alt="Strauß ${esc(x.name)}" loading="lazy" width="560" height="778">
+          <span class="pc-text"><span class="d">${esc(x.name)} · ${esc(gefuehlVon(x.gefuehl)?.name ?? "")}</span><span>${esc(preisText(x.artikel.cent))}</span></span>
         </button>`;
       }).join("")}</div>
       <div class="knopfreihe mitte"><a class="btn2" href="#uebersicht">Alle Sträuße ansehen</a></div>
     </section>`;
 }
 
-function produktHtml(v) {
-  const b = bild(v.haupt, v.anlass.id);
+function produktHtml(v, ersetze = null) {
+  const b = bild(v.haupt, v.anlass?.id ?? namen()[ersetze]?.anlass ?? null);
   const a = art();
   const pflege = "Schneide die Stiele schräg an, stell den Strauß in frisches, kühles Wasser und wechsle es alle zwei Tage. Kein Platz direkt neben der Heizung oder in praller Sonne.";
+  const zurueck = v.auswahl ? zurueckLink(hashAusAuswahl(v.auswahl), "Zurück zum Vorschlag")
+    : ersetze ? zurueckLink("#warenkorb", "Zurück zum Warenkorb") : zurueckLink("#uebersicht", "Alle Sträuße");
+  const knopf = ersetze
+    ? `<button type="button" class="btn breit" data-tausch="${esc(ersetze)}" data-rein="${esc(v.haupt.preis_id)}">Änderung übernehmen – ${esc(v.groesse.name)} · ${esc(preisText(v.haupt.cent))}${ic("pfeil")}</button>`
+    : `<button type="button" class="btn breit" data-rein="${esc(v.haupt.preis_id)}">${esc(v.groesse.name)} · ${esc(preisText(v.haupt.cent))} in den Warenkorb${ic("pfeil")}</button>`;
   return `${banner()}
-    <div class="leiste">${zurueckLink(hashAusAuswahl(v.auswahl), "Zurück zum Vorschlag")}</div>
+    <div class="leiste">${zurueck}</div>
     <section class="produkt">
       <figure class="produkt-bild">
-        <img src="${esc(b.src)}" alt="Strauß ${esc(v.name)}" width="1152" height="1600">
+        ${bildHtml(b, `Strauß ${v.name}`)}
         ${b.beispiel ? `<figcaption>${esc(BEISPIEL)}</figcaption>` : ""}
       </figure>
       <div class="produkt-text">
         <h1 class="d">${esc(v.name)}</h1>
-        <div class="preis"><span class="d">${esc(preisText(v.haupt.cent))}</span><span>zzgl. Lieferung</span></div>
+        ${v.produkt !== v.name ? `<p class="produktzeile">${esc(v.produkt)}</p>` : ""}
+        <div class="preis"><span class="d">${esc(preisText(v.haupt.cent))}</span><span>${esc(preisHinweis())}</span></div>
         <p class="beschreibung">${esc(v.text)}</p>
         <div class="feld">
           <div class="feld-titel">Größe</div>
-          <div role="radiogroup" aria-label="Größe" class="groessen">${GROESSEN.map((g) => {
-            const x = finden(katalog.artikel, v.gefuehl.id, g.id);
-            if (!x) return "";
-            const an = g.id === v.groesse.id;
-            return `<button type="button" class="sz${an ? " an" : ""}" role="radio" aria-checked="${an}" data-groesse="${g.id}" data-bleiben="produkt"><span>${esc(g.name)}</span><span>${esc(preisText(x.cent))}</span></button>`;
-          }).join("")}</div>
-          <p class="klein">${esc(v.groesse.satz)}</p>
+          ${groessenHtml(v)}
         </div>
         ${katalog.lieferung ? `<div class="feld">
           <div class="feld-titel">Lieferung oder Abholung?</div>
@@ -371,12 +466,15 @@ function produktHtml(v) {
             <button type="button" class="dt${a === "abholung" ? " an" : ""}" role="radio" aria-checked="${a === "abholung"}" data-art="abholung">${ic("laden")}Abholung in Heide</button>
           </div>
         </div>` : ""}
-        <div class="termin-box">${ic("kalender")}<span>Dein Termin: <strong>${esc(terminSatz(a))}</strong>. ${esc(schlussSatz())}.</span></div>
-        <button type="button" class="btn breit" data-rein="${esc(v.haupt.preis_id)}">In den Warenkorb – ${esc(preisText(v.haupt.cent))}${ic("pfeil")}</button>
+        <div class="feld">${wochenWahlHtml()}</div>
+        <div class="termin-box">${ic("kalender")}<span><strong>${esc(terminSatz(a))}</strong></span></div>
+        ${knopf}
+        <p class="klein unter-knopf">${esc(schlussSatz())}</p>
         <div class="akkordeon">
           <details><summary>Was macht diesen Strauß besonders?</summary><p>${esc(v.gefuehl.text)} ${esc(SAISON_SATZ)}</p></details>
+          <details><summary>Wie groß ist er?</summary><p>${GROESSEN.map((g) => `${esc(g.name)}: ${esc(g.satz)}.`).join(" ")} Alle drei werden in derselben Farb- und Stilwelt gebunden – größer heißt mehr Blüten und mehr Fülle.</p></details>
           <details><summary>Pflegetipps</summary><p>${esc(pflege)}</p></details>
-          <details><summary>Lieferung &amp; Abholung</summary><p>${esc(konfig.abholung || "Abholung in Heide.")} ${katalog.lieferung ? esc(konfig.liefergebiet || "Geliefert wird in Heide und Umgebung, etwa 6 Kilometer weit – mit dem Rad, auf einer Route. Was die Lieferung kostet, siehst du an der Kasse.") : ""} ${esc(schlussSatz())} – danach geht es in die Woche darauf.</p></details>
+          <details><summary>Lieferung &amp; Abholung</summary><p>${esc(konfig.abholung || "Abholung in Heide – kostenlos.")} ${katalog.lieferung ? esc(konfig.liefergebiet || "Geliefert wird in Heide und Umgebung, etwa 6 Kilometer weit – mit dem Rad, auf einer Route. Die Lieferkosten siehst du vor dem Bezahlen.") : ""} ${esc(schlussSatz())} – danach geht es in die Woche darauf.</p></details>
         </div>
       </div>
     </section>`;
@@ -394,11 +492,12 @@ function korbZeilenHtml() {
       <img src="${esc(b.src.replace("bilder/", "bilder/klein/"))}" alt="" width="96" height="120">
       <div class="korb-mitte">
         <div class="d korb-name">${esc(meta.name || a.name)}</div>
-        <div class="klein">${esc(meta.name ? a.name : "")}${g ? `${meta.name ? " · " : ""}Größe: ${esc(g.name)}` : ""}</div>
+        <div class="klein">${esc(meta.name ? a.name : g ? `Größe: ${g.name}` : "")}</div>
         <div class="korb-menge">
           <button type="button" class="qb" aria-label="Menge verringern" data-menge="-1" data-preis-id="${esc(p.preis)}">${ic("minus")}</button>
           <span aria-live="polite">${p.menge}</span>
           <button type="button" class="qb" aria-label="Menge erhöhen" data-menge="1" data-preis-id="${esc(p.preis)}"${p.menge >= MENGE_MAX ? " disabled" : ""}>${ic("plus")}</button>
+          ${a.stil && g ? `<a class="lk" href="${esc(hashAusStrauss(a.stil, a.groesse, p.preis))}">Ändern</a>` : ""}
           <button type="button" class="lk" data-weg="${esc(p.preis)}">Entfernen</button>
         </div>
       </div>
@@ -428,8 +527,11 @@ function warenkorbHtml() {
             <button type="button" class="dt${a === "lieferung" ? " an" : ""}" role="radio" aria-checked="${a === "lieferung"}" data-art="lieferung">${ic("lieferung")}Lieferung</button>
             <button type="button" class="dt${a === "abholung" ? " an" : ""}" role="radio" aria-checked="${a === "abholung"}" data-art="abholung">${ic("laden")}Abholung in Heide</button>
           </div>` : ""}
-          <div class="termin-box">${ic("kalender")}<span><strong>${esc(terminSatz(a))}</strong> · ${esc(schlussSatz())}</span></div>
-          <p class="klein">${a === "lieferung" ? "Die Anschrift gibst du an der Kasse an." : esc(konfig.abholung || "Abholung in Heide.")}</p>
+          ${wochenWahlHtml()}
+          <div class="termin-box">${ic("kalender")}<span><strong>${esc(terminSatz(a))}</strong><br><span class="klein">${esc(schlussSatz())}</span></span></div>
+          <p class="klein">${a === "lieferung"
+            ? `Die Anschrift gibst du an der Kasse an.${straeusse.length > 1 ? " Alle Sträuße dieser Bestellung gehen an diese eine Anschrift." : ""}`
+            : esc(konfig.abholung || "Abholung in Heide – kostenlos.")}</p>
         </section>
         <section class="box">
           <h2 class="d">Grüße, die von Herzen kommen</h2>
@@ -449,36 +551,49 @@ function warenkorbHtml() {
           const x = katalog.artikel.find((y) => y.preis_id === p.preis);
           return x ? `<div class="summenzeile"><span>${esc(namen()[p.preis]?.name || x.name)}${p.menge > 1 ? ` × ${p.menge}` : ""}</span><span>${esc(preisText(x.cent * p.menge))}</span></div>` : "";
         }).join("")}
-        ${a === "lieferung" ? `<div class="summenzeile leise"><span>Lieferung Heide &amp; Umgebung</span><span>an der Kasse</span></div>` : ""}
-        <div class="summenzeile gesamt"><span>Gesamt</span><span class="d">${esc(preisText(summe))}</span></div>
+        ${a === "lieferung"
+          // Lieferpreis offen (Nutzer 2026-09-23): kein erfundener Betrag – Stripe zeigt ihn vor dem Bezahlen.
+          ? `<div class="summenzeile gesamt"><span>Zwischensumme</span><span class="d">${esc(preisText(summe))}</span></div>
+        <div class="summenzeile leise"><span>Lieferung Heide &amp; Umgebung</span><span>siehst du vor dem Bezahlen</span></div>`
+          : `<div class="summenzeile leise"><span>Abholung</span><span>kostenlos</span></div>
+        <div class="summenzeile gesamt"><span>Gesamt</span><span class="d">${esc(preisText(summe))}</span></div>`}
         <button type="button" class="btn breit" data-kasse${kannKasse ? "" : " disabled"}>${kasseErlaubt(m) ? "Zur Kasse" : "Bestellen geht noch nicht"}${kasseErlaubt(m) ? ic("pfeil") : ""}</button>
         <p class="fehler" data-kasse-fehler role="alert" hidden></p>
         <ul class="merkmale klein">
           <li>${ic("schloss")}Sichere Zahlung über Stripe</li>
           <li>${ic("blatt")}Frisch gebunden – ${esc(terminSatz(a))}</li>
         </ul>
+        ${rechtlicheLinks(konfig.rechtliches).length ? `<p class="klein rechtliches">${rechtlicheLinks(konfig.rechtliches).map((l) => `<a href="${esc(l.url)}" rel="noopener">${esc(l.titel)}</a>`).join(" · ")}</p>` : ""}
         ${m.art === "demo" ? `<p class="klein">Das ist eine Vorschau – hier wird nichts bestellt.</p>` : ""}
       </aside>
     </div>`;
 }
 
-function bestaetigungHtml() {
-  const t = termin();
-  const a = art();
+function bestaetigungHtml(d) {
+  const a = d?.art === "lieferung" || d?.art === "abholung" ? d.art : art();
+  const t = d ? liefertermin(Date.now(), woche(), d.woche) : termin();
   const sp = sprache(lesen(LETZTER, null));
+  const kontakt = typeof konfig.kontakt?.email === "string" && /^[^\s@<>]+@[^\s@<>]+$/.test(konfig.kontakt.email) ? konfig.kontakt.email : "";
   return `<section class="bestaetigung">
       <span class="kreis">${ic("haken", "ic gross")}</span>
       <h1 class="d">${esc(sp.dank)}</h1>
-      <p>Deine Bestellung ist angekommen. Die Bestätigung kommt per E-Mail.</p>
+      <p>${d && !d.bezahlt ? "Deine Bestellung ist angekommen – die Zahlung ist noch nicht bestätigt." : "Deine Bestellung ist angekommen."} Die Bestätigung kommt per E-Mail.</p>
+      ${d ? `<div class="box">
+        <h2 class="d">Deine Bestellung</h2>
+        <div class="summenzeile"><span>Bestellnummer</span><span>${esc(d.nummer)}</span></div>
+        ${(Array.isArray(d.positionen) ? d.positionen : []).map((p) => `<div class="summenzeile"><span>${esc(p.titel)}</span><span>× ${esc(p.menge)}</span></div>`).join("")}
+        ${Number.isInteger(d.cent) ? `<div class="summenzeile gesamt"><span>${d.bezahlt ? "Bezahlt" : "Betrag"}</span><span class="d">${esc(preisText(d.cent))}</span></div>` : ""}
+        <div class="termin-box">${ic(a === "lieferung" ? "lieferung" : "laden")}<span><strong>${esc(terminSatz(a, t))}</strong>${a === "abholung" && konfig.abholung ? `<br><span class="klein">${esc(konfig.abholung)}</span>` : ""}</span></div>
+      </div>` : ""}
       <div class="box">
         <h2 class="d">So geht es weiter</h2>
         <ol class="nummern">
           <li><span>1</span><span><strong>Nach dem Bestellschluss</strong> kommen die Blumen der Woche – dann wird dein Strauß frisch gebunden.</span></li>
-          <li><span>2</span><span><strong>${esc(t.abholung ? terminSatz(a) : "Dein Termin")}</strong> – ${a === "lieferung" ? "dann kommt er zu dir." : "dann kannst du ihn abholen."}</span></li>
-          <li><span>3</span><span>Etwas ändern? Antworte einfach auf die Bestätigungsmail.</span></li>
+          <li><span>2</span><span><strong>${esc(t.abholung ? terminSatz(a, t) : "Dein Termin")}</strong> – ${a === "lieferung" ? "dann kommt er zu dir." : "dann kannst du ihn abholen."}</span></li>
+          <li><span>3</span><span>Etwas ändern? ${kontakt ? `Schreib an <a href="mailto:${esc(kontakt)}">${esc(kontakt)}</a>${d ? ` und nenne die Nummer ${esc(d.nummer)}` : ""}.` : "Antworte einfach auf die Bestätigungsmail."}</span></li>
         </ol>
       </div>
-      <div class="knopfreihe"><a class="btn2" href="#">Zur Startseite</a><span class="logo signatur">Blumen verbinden Menschen.</span></div>
+      <div class="knopfreihe"><a class="btn2" href="#" data-ziel="start">Zur Startseite</a><span class="logo signatur">Blumen verbinden Menschen.</span></div>
     </section>`;
 }
 
@@ -492,9 +607,9 @@ function uebersichtHtml() {
       const x = finden(katalog.artikel, g.id, "M");
       if (!x) return "";
       const b = bild(x, "einfach");
-      const ab = anlass("einfach").absichten.find((y) => y.groesse === "M");
-      return `<a class="pc" href="${esc(hashAusAuswahl({ anlass: "einfach", absicht: ab.id, gefuehl: g.id }, "produkt"))}">
-        <img src="${esc(b.src.replace("bilder/", "bilder/klein/"))}" alt="Strauß ${esc(g.name)}" loading="lazy" width="560" height="778">
+      // Stabiler Name (Review 2026-09-23): „Elegant" führt zu „Elegant · Besonders", nicht zu einem Anlassnamen.
+      return `<a class="pc" href="${esc(hashAusStrauss(g.id, "M"))}">
+        <img src="${esc(b.src.replace("bilder/", "bilder/klein/"))}"${b.beispiel ? "" : ` class="echt"`} alt="Strauß ${esc(g.name)}" loading="lazy" width="560" height="778">
         <span class="pc-text"><span class="d">${esc(g.name)}</span><span>ab ${esc(preisText(Math.min(...GROESSEN.map((s) => finden(katalog.artikel, g.id, s.id)?.cent ?? Infinity))))}</span></span>
         <span class="pc-unter">${esc(g.kurz)}</span>
       </a>`;
@@ -506,6 +621,10 @@ export function zustandAus(hash) {
   if (hash === "#anlass") return { ansicht: "anlass" };
   if (hash === "#uebersicht") return { ansicht: "uebersicht" };
   if (hash === "#warenkorb") return { ansicht: "warenkorb" };
+  if (/^#strauss=/.test(hash ?? "")) {
+    const x = straussAusHash(hash);
+    return x ? { ansicht: "strauss", strauss: x } : { ansicht: "start" };
+  }
   const auswahl = auswahlAusHash(hash);
   if (!auswahl.anlass) return { ansicht: "start" };
   if (schritt(auswahl) === 1) return { ansicht: "botschaft", auswahl };
@@ -521,28 +640,68 @@ function gehe(hash, ersetzen = false) {
   if (location.hash === hash || (!hash && !location.hash)) return zeichnen();
   if (ersetzen) {
     history.replaceState(null, "", hash || location.pathname + location.search);
-    return zeichnen();
+    return seiteWechseln();
   }
   if (!hash) {
     history.pushState(null, "", location.pathname + location.search);
-    return zeichnen();
+    return seiteWechseln();
   }
   location.hash = hash;
+}
+
+// ------------------------------------------------------------------ Seitenwechsel
+// Nutzer 2026-09-23: „achte auf angenehmen Seitenwechsel". Die alte Seite bleibt stehen, bis die neue über ihr
+// eingeblendet ist (View Transitions, Kopf bleibt ruhig); die ersten Bilder sind dann schon dekodiert. Zurück landet
+// dort, wo man die Seite verlassen hat, vorwärts oben. Ohne API oder bei reduzierter Bewegung: wie bisher.
+const REIHE = ["start", "anlass", "uebersicht", "strauss", "botschaft", "vorschlag", "produkt", "warenkorb"];
+const lage = new Map(); // Bildlauf je Adresse
+let letzteAdresse = null;
+const ruhig = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+/** Wartet kurz auf die ersten Bilder der neuen Seite, höchstens `ms` – damit keine leeren Kästen einblenden. */
+function bilderBereit(el, ms = 220) {
+  const bilder = [...el.querySelectorAll("img")].slice(0, 3).map((b) => b.decode?.().catch(() => {}));
+  return Promise.race([Promise.all(bilder), new Promise((r) => setTimeout(r, ms))]);
+}
+
+let unterwegs = null; // Adresse eines laufenden Wechsels – „Zurück" meldet hashchange und popstate
+function seiteWechseln() {
+  const ziel = location.hash + location.search;
+  if (ziel === unterwegs) return;
+  if (zustand().ansicht === letzteAnsicht || !document.startViewTransition || ruhig() || document.hidden) return zeichnen();
+  unterwegs = ziel;
+  const w = document.startViewTransition(async () => {
+    zeichnen();
+    await bilderBereit($("inhalt"));
+  });
+  w.finished.finally(() => { if (unterwegs === ziel) unterwegs = null; });
 }
 
 let letzteAnsicht = null;
 function zeichnen() {
   const inhalt = $("inhalt");
   const z = zustand();
-  if (z.ansicht === "botschaft" && letzteAnsicht !== "botschaft") entwurf = { absicht: null, preis: null };
+  if (z.ansicht === "botschaft" && letzteAnsicht !== "botschaft") {
+    const l = letzteAuswahl?.anlass === z.auswahl.anlass ? letzteAuswahl : null;
+    entwurf = { absicht: l?.absicht ?? null, preis: l?.preis ?? null };
+  }
+  if (z.ansicht === "anlass") letzteAuswahl = null; // „Von vorn beginnen" beginnt wirklich von vorn
+  if (z.ansicht === "vorschlag" || z.ansicht === "produkt") letzteAuswahl = z.auswahl;
+  if (z.ansicht !== "start") bestellt = null; // die Bestätigung gilt nur bis zum nächsten Seitenwechsel
   let html;
-  if (rueckkehr(location.search) === "bestellt" && z.ansicht === "start") html = bestaetigungHtml();
+  let straussV = null;
+  if (bestellt && z.ansicht === "start") html = bestaetigungHtml(bestellt.daten);
   else if (z.ansicht === "start") html = startHtml();
   else if (z.ansicht === "anlass") html = anlassHtml();
   else if (z.ansicht === "uebersicht") html = uebersichtHtml();
   else if (z.ansicht === "warenkorb") html = warenkorbHtml();
   else if (z.ansicht === "botschaft") html = botschaftHtml(z.auswahl);
-  else {
+  else if (z.ansicht === "strauss") {
+    straussV = strauss(z.strauss.gefuehl, z.strauss.groesse, katalog.artikel);
+    const n = namen()[z.strauss.ersetze];
+    if (straussV && z.strauss.ersetze && n?.name) straussV = { ...straussV, name: n.name }; // „Ändern": der Name aus der Beratung
+    html = !straussV ? `<p class="ruhig">Diesen Strauß gibt es gerade nicht. <a href="#uebersicht">Alle Sträuße</a></p>` : produktHtml(straussV, z.strauss.ersetze);
+  } else {
     const v = vorschlag(z.auswahl, katalog.artikel);
     html = !v ? `<p class="ruhig">Diesen Strauß gibt es gerade nicht. <a href="#anlass">Noch einmal wählen</a></p>`
       : z.ansicht === "produkt" ? produktHtml(v) : vorschlagHtml(v);
@@ -552,25 +711,59 @@ function zeichnen() {
   // Stufen (Nutzer 2026-09-23): erst eine Ahnung, die volle Farbe mit dem Bild des Straußes.
   if (z.ansicht === "botschaft") welt(z.auswahl.anlass, null, STAERKE.botschaft);
   else if (z.ansicht === "vorschlag" || z.ansicht === "produkt") welt(z.auswahl.anlass, wahl(z.auswahl)?.gefuehl ?? null, STAERKE.strauss);
+  else if (z.ansicht === "strauss") welt(namen()[z.strauss.ersetze]?.anlass ?? null, z.strauss.gefuehl, STAERKE.strauss);
   else if (z.ansicht === "warenkorb") welt(...korbWelt(), STAERKE.warenkorb);
-  else if (rueckkehr(location.search) === "bestellt" && z.ansicht === "start") welt(lesen(LETZTER, null), null, STAERKE.warenkorb);
+  else if (bestellt && z.ansicht === "start") welt(lesen(LETZTER, null), null, STAERKE.warenkorb);
   else welt(null, null);
   const neu = z.ansicht !== letzteAnsicht;
+  const zurueck = REIHE.indexOf(z.ansicht) < REIHE.indexOf(letzteAnsicht);
+  const adresse = location.hash + location.search;
+  if (neu && letzteAdresse !== null) lage.set(letzteAdresse, window.scrollY);
+  letzteAdresse = adresse;
   letzteAnsicht = z.ansicht;
   // Die Bestätigung nach Stripe steht auf der Startadresse – aber nicht als Bühne.
-  document.body.dataset.ansicht = z.ansicht === "start" && rueckkehr(location.search) === "bestellt" ? "bestaetigung" : z.ansicht;
+  document.body.dataset.ansicht = z.ansicht === "start" && bestellt ? "bestaetigung" : z.ansicht === "strauss" ? "produkt" : z.ansicht;
   inhalt.innerHTML = html;
   farbenSetzen(inhalt);
+  radiosOrdnen(inhalt);
   if (neu) {
     inhalt.classList.remove("einblenden");
     void inhalt.offsetWidth;
     inhalt.classList.add("einblenden");
     // Nach dem Einblenden die Klasse lösen – sonst startet jede spätere Regeländerung die Animation neu.
     inhalt.addEventListener("animationend", () => inhalt.classList.remove("einblenden"), { once: true });
-    window.scrollTo({ top: 0, behavior: "auto" });
+    window.scrollTo({ top: zurueck ? lage.get(adresse) ?? 0 : 0, behavior: "auto" });
     inhalt.focus({ preventScroll: true });
   }
   korbZahl();
+}
+
+/** Radiogruppen: nur die gewählte Option ist per Tab erreichbar, Pfeiltasten wechseln (siehe `pfeile`). */
+function radiosOrdnen(root) {
+  root.querySelectorAll('[role="radiogroup"]').forEach((g) => {
+    const r = [...g.querySelectorAll('[role="radio"]')];
+    const an = r.find((x) => x.getAttribute("aria-checked") === "true") ?? r[0];
+    r.forEach((x) => { x.tabIndex = x === an ? 0 : -1; });
+  });
+}
+
+/** Pfeiltasten in einer Radiogruppe wählen die nächste Option und behalten den Fokus nach dem Neuzeichnen. */
+function pfeile(ev) {
+  const schritt = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[ev.key];
+  const r = schritt && ev.target.closest?.('[role="radio"]');
+  const gruppe = r?.closest('[role="radiogroup"]');
+  if (!gruppe) return;
+  ev.preventDefault();
+  const alle = [...gruppe.querySelectorAll('[role="radio"]')];
+  const ziel = alle[(alle.indexOf(r) + schritt + alle.length) % alle.length];
+  const merkmal = ["absicht", "groesse", "art"].find((k) => ziel.dataset[k] !== undefined);
+  if (!merkmal) return;
+  const wert = ziel.dataset[merkmal];
+  ziel.click();
+  const fokus = () => document.querySelector(`[role="radio"][data-${merkmal}="${CSS.escape(wert)}"]`)?.focus();
+  fokus();
+  requestAnimationFrame(fokus);
+  setTimeout(fokus, 60); // nach einem Adresswechsel (Größe) zeichnet erst hashchange neu
 }
 
 // ------------------------------------------------------------------ Warenkorb
@@ -578,6 +771,8 @@ function korbZahl() {
   korb = korbBereinigen(korb, katalog.artikel);
   const n = korbAnzahl(korb);
   $("warenkorb-zahl").textContent = n ? String(n) : "";
+  // Für Screenreader: „Warenkorb, 2 Artikel" statt einer nackten Zahl.
+  $("warenkorb-knopf").setAttribute("aria-label", n ? `Warenkorb, ${n} Artikel` : "Warenkorb, leer");
 }
 
 function nachAenderung() {
@@ -598,7 +793,7 @@ async function zurKasse(knopf) {
     const r = await fetch(`${m.worker}/shop/kasse`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(kassenAnfrage(korb, art(), karteDrin ? karteText() : "")),
+      body: JSON.stringify(kassenAnfrage(korb, art(), karteDrin ? karteText() : "", termin().montag ?? null)),
     });
     const d = await r.json().catch(() => ({}));
     if (r.ok && typeof d.url === "string" && /^https:\/\//.test(d.url)) {
@@ -622,6 +817,7 @@ function klick(ev) {
   const z = zustand();
   if (d.ziel !== undefined) {
     ev.preventDefault();
+    if (d.ziel === "start") bestellt = null;
     return gehe(d.ziel === "start" ? "" : `#${d.ziel}`);
   }
   if (d.absicht && z.ansicht === "botschaft") {
@@ -638,9 +834,25 @@ function klick(ev) {
   if (d.gefuehl && z.auswahl) {
     return gehe(hashAusAuswahl({ ...z.auswahl, gefuehl: d.gefuehl }, z.ansicht === "produkt" ? "produkt" : null));
   }
+  if (d.groesse && z.ansicht === "strauss") {
+    return gehe(hashAusStrauss(z.strauss.gefuehl, d.groesse, z.strauss.ersetze), true);
+  }
   if (d.groesse && z.auswahl) {
-    // Auf der Produktseite ersetzt die Größe den Eintrag – „Zurück" führt dann zum Vorschlag, nicht durch jede Größe.
-    return gehe(hashAusAuswahl({ ...z.auswahl, groesse: d.groesse }, z.ansicht === "produkt" ? "produkt" : null), z.ansicht === "produkt");
+    // Die Größenwahl (Radiogruppe) ersetzt den Eintrag – „Zurück" führt nicht durch jede Größe. „Etwas größer" stapelt.
+    const ersetzen = z.ansicht === "produkt" || el.getAttribute("role") === "radio";
+    // Größe von Hand ist die spätere Wahl: sie gewinnt, der Preisrahmen fällt weg (kein widersprüchlicher Chip).
+    return gehe(hashAusAuswahl({ ...z.auswahl, groesse: d.groesse, preis: null }, z.ansicht === "produkt" ? "produkt" : null), ersetzen);
+  }
+  if (d.rein && d.tausch) {
+    // „Ändern" aus dem Warenkorb: dieselbe Menge, Name und Anlass aus der Beratung bleiben.
+    const alt = korb.find((p) => p.preis === d.tausch);
+    const n = namen()[d.tausch];
+    if (alt && d.tausch !== d.rein) {
+      korb = korbSetzen(korbSetzen(korb, d.tausch, 0), d.rein, alt.menge + (korb.find((p) => p.preis === d.rein)?.menge ?? 0));
+      if (n?.name) nameMerken(d.rein, n.name, n.anlass);
+      nachAenderung();
+    }
+    return gehe("#warenkorb");
   }
   if (d.rein) {
     const v = z.auswahl ? vorschlag(z.auswahl, katalog.artikel) : null;
@@ -676,6 +888,10 @@ function eingabe(ev) {
     nachAenderung();
     return zeichnen();
   }
+  if (t.matches("[data-woche]") && ev.type === "change") {
+    merken(WOCHE_WAHL, t.value);
+    return zeichnen();
+  }
   if (t.matches("[data-karte]")) {
     const text = t.value.slice(0, KARTE_MAX);
     merken(KARTE, text);
@@ -690,16 +906,36 @@ function fuss() {
   const hinweis = m.art === "bald" ? "Impressum und Datenschutz folgen mit dem Start des Shops."
     : m.art === "demo" ? "Vorschau – bestellen geht noch nicht. Impressum und Datenschutz folgen mit dem Start des Shops."
     : m.art === "vorschau" ? "Vorschau mit einem lokalen Worker – hier wird nichts echt bezahlt."
-    : "Alle Preise zzgl. Lieferung. Bezahlt wird sicher über Stripe.";
+    : "Abholung kostenlos · Lieferkosten siehst du vor dem Bezahlen · Bezahlt wird sicher über Stripe.";
+  const k = konfig.kontakt ?? {};
+  const mail = typeof k.email === "string" && /^[^\s@<>]+@[^\s@<>]+$/.test(k.email) ? k.email : "";
+  const tel = typeof k.telefon === "string" && /^[+0-9 ()/-]{6,30}$/.test(k.telefon) ? k.telefon : "";
+  const kontakt = [
+    mail ? `<a class="fl" href="mailto:${esc(mail)}">${esc(mail)}</a>` : "",
+    tel ? `<a class="fl" href="tel:${esc(tel.replace(/[^+0-9]/g, ""))}">${esc(tel)}</a>` : "",
+    konfig.abholung ? `<span>${esc(konfig.abholung)}</span>` : "",
+  ].filter(Boolean);
   $("fuss").innerHTML = `<div class="fuss-oben">
-      <div class="fuss-marke"><span class="logo">${esc(konfig.name || "")}</span><span>Aus Heide. Für besondere Menschen.</span></div>
-      <nav class="fuss-nav" aria-label="Service"><a class="fl" href="#anlass">Anlässe</a><a class="fl" href="#uebersicht">Alle Sträuße</a><a class="fl" href="#warenkorb">Warenkorb</a></nav>
+      <div class="fuss-marke"><span class="logo">${esc(konfig.name || "")}</span><span>${esc(konfig.unterzeile || "")}</span><span>Aus Heide. Für besondere Menschen.</span></div>
+      <nav class="fuss-nav" aria-label="Service"><a class="fl" href="#anlass">Strauß finden</a><a class="fl" href="#uebersicht">Alle Sträuße</a><a class="fl" href="#warenkorb">Warenkorb</a></nav>
+      ${kontakt.length ? `<div class="fuss-kontakt">${kontakt.join("")}</div>` : ""}
     </div>
     <div class="fuss-unten"><span>${esc(hinweis)}</span>${links.length ? `<nav class="fuss-nav" aria-label="Rechtliches">${links.map((l) => `<a class="fl" href="${esc(l.url)}" rel="noopener">${esc(l.titel)}</a>`).join("")}</nav>` : ""}</div>`;
 }
 
 function bald() {
   $("inhalt").innerHTML = `<section class="bald"><h2 class="d">Der Shop öffnet bald</h2><p>Hier kannst du demnächst Blumen für besondere Momente bestellen.</p></section>`;
+}
+
+/** Einzelheiten der Bestellung vom eigenen Worker (Nummer, bezahlt, Betrag, Positionen) – sonst die allgemeine Bestätigung. */
+async function bestellungHolen(id) {
+  if (!kasseErlaubt(m) || !/^cs_[A-Za-z0-9_]{10,250}$/.test(id)) return null;
+  try {
+    const r = await fetch(`${m.worker}/shop/bestellung?id=${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(5000) });
+    return r.ok ? await r.json() : null;
+  } catch {
+    return null;
+  }
 }
 
 async function katalogHolen() {
@@ -719,12 +955,21 @@ async function laden() {
     korb = [];
   }
   const vonStripe = rueckkehr(location.search);
+  const sessionId = new URLSearchParams(location.search).get("session_id") ?? "";
   if (vonStripe === "bestellt") {
     korb = [];
     merken(SPEICHER, korb);
     merken(KARTE, "");
+    merken(WOCHE_WAHL, null);
+    bestellt = { daten: await bestellungHolen(sessionId) };
   } else if (vonStripe === "abgebrochen") {
     meldung("Bezahlung abgebrochen – dein Warenkorb ist noch da.", true);
+  }
+  // Adresse bereinigen: Neuladen zeigt danach die Startseite, nicht noch einmal die Bestätigung.
+  if (vonStripe) {
+    const q = new URLSearchParams(location.search);
+    for (const k of ["bestellt", "abgebrochen", "session_id"]) q.delete(k);
+    history.replaceState(null, "", `${location.pathname}${q.size ? `?${q}` : ""}${location.hash}`);
   }
   try {
     const k = await katalogHolen();
@@ -734,13 +979,13 @@ async function laden() {
     }
     katalog = k;
   } catch {
-    $("inhalt").innerHTML = `<p class="ruhig">Der Shop ist gerade nicht erreichbar – bitte später noch einmal.</p>`;
+    $("inhalt").innerHTML = `<section class="bald"><h2 class="d">Gerade nicht erreichbar</h2><p>Der Shop antwortet im Moment nicht – bitte versuch es in ein paar Minuten noch einmal.</p><a class="btn2" href="">Neu laden</a></section>`;
     return;
   }
   $("warenkorb-knopf").hidden = false;
   zeichnen();
-  window.addEventListener("hashchange", zeichnen);
-  window.addEventListener("popstate", zeichnen);
+  window.addEventListener("hashchange", seiteWechseln);
+  window.addEventListener("popstate", seiteWechseln);
   document.addEventListener("click", klick);
   // „Die Seite darf sich während der Navigation verwandeln" (Master-Prompt § 5): auf der Anlass-Seite tönt das
   // Überfahren oder Fokussieren einer Karte die Seite leise in deren Welt – ohne Klick, ohne Sprung.
@@ -752,6 +997,7 @@ async function laden() {
   document.addEventListener("pointerover", vorschau);
   document.addEventListener("focusin", vorschau);
   document.addEventListener("change", eingabe);
+  document.addEventListener("keydown", pfeile);
   document.addEventListener("input", eingabe);
 }
 

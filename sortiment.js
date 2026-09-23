@@ -4,20 +4,24 @@
 
 /** Die fünf Gefühle – sie sind die Produkte. Anlass und Absicht färben nur Name, Text und Farbwelt. */
 export const GEFUEHLE = [
-  { id: "zart", name: "Zart", kurz: "Ruhig und fein", text: "Weiche Töne, leichte Formen, viel Luft zwischen den Blüten." },
-  { id: "froehlich", name: "Fröhlich", kurz: "Lebendig und farbenfroh", text: "Warme, helle Farben und runde Blüten – ein Strauß, der gute Laune macht." },
-  { id: "natuerlich", name: "Natürlich", kurz: "Locker und wild", text: "Wie frisch aus dem Garten: Gräser, Zweige und Blüten der Saison, locker gebunden." },
-  { id: "elegant", name: "Elegant", kurz: "Stilvoll und besonders", text: "Wenige ausgesuchte Sorten, klare Linie, ruhige Farbigkeit." },
-  { id: "ausdrucksstark", name: "Ausdrucksstark", kurz: "Kräftig und unübersehbar", text: "Satte Farben, große Blüten, ein Strauß mit Haltung." },
+  // `merkmal`: was Ela bindet, in ihrer Stimme („… würde ich dir diesen Strauß binden: <merkmal>.“)
+  { id: "zart", name: "Zart", kurz: "Ruhig und fein", text: "Weiche Töne, leichte Formen, viel Luft zwischen den Blüten.", merkmal: "weiche Töne, leichte Formen und viel Luft zwischen den Blüten" },
+  { id: "froehlich", name: "Fröhlich", kurz: "Lebendig und farbenfroh", text: "Warme, helle Farben und runde Blüten – ein Strauß, der gute Laune macht.", merkmal: "warme, helle Farben, runde Blüten und viel Leichtigkeit" },
+  { id: "natuerlich", name: "Natürlich", kurz: "Locker und wild", text: "Wie frisch aus dem Garten: Gräser, Zweige und Blüten der Saison, locker gebunden.", merkmal: "Gräser, Zweige und Blüten der Saison, locker wie aus dem Garten" },
+  { id: "elegant", name: "Elegant", kurz: "Stilvoll und besonders", text: "Wenige ausgesuchte Sorten, klare Linie, ruhige Farbigkeit.", merkmal: "wenige ausgesuchte Sorten, eine klare Linie und ruhige Farben" },
+  { id: "ausdrucksstark", name: "Ausdrucksstark", kurz: "Kräftig und unübersehbar", text: "Satte Farben, große Blüten, ein Strauß mit Haltung.", merkmal: "satte Farben und große Blüten – ein Strauß mit Haltung" },
 ];
 /** Frühere Bezeichnung – die Kennungen der Gefühle stehen in der Metadaten-Spalte `stil`. */
 export const STILE = GEFUEHLE;
 
-/** Die Größe der Geste. Kennungen S/M/L bleiben (Stripe-Metadaten, Compass), gezeigt werden die Namen. */
+/**
+ * Die Größe der Geste. Kennungen S/M/L bleiben (Stripe-Metadaten, Compass), gezeigt werden die Namen.
+ * `satz` ist die Größenhilfe in Worten – Maße erst, wenn Ela sie verlässlich angeben kann (keine erfundenen Zahlen).
+ */
 export const GROESSEN = [
   { id: "S", name: "Klein", satz: "Ein feiner Gruß" },
-  { id: "M", name: "Besonders", satz: "Etwas mehr Blütenfreude" },
-  { id: "L", name: "Großzügig", satz: "Ein unübersehbarer Auftritt" },
+  { id: "M", name: "Besonders", satz: "Der klassische Geschenkstrauß" },
+  { id: "L", name: "Großzügig", satz: "Ein großer Auftritt" },
 ];
 export const PREISE_STANDARD = { S: 2900, M: 3900, L: 5500 };
 
@@ -31,6 +35,8 @@ export const EXTRAS = [
 ];
 
 export const SAISON_SATZ = "Saisonal gebunden: Ela wählt Blumen, die in dieser Farb- und Stilwelt gerade schön sind. Die genaue Zusammenstellung variiert leicht.";
+/** Was das Foto zeigt (Review 2026-09-23): die Stil- und Farbwelt, nicht genau diese Blumen. */
+export const FOTO_SATZ = "Das Foto zeigt die Stil- und Farbwelt. Die genaue Blumenauswahl variiert je nach Saison und Verfügbarkeit.";
 
 /** Preis-IDs der Vorschau – nie echte Stripe-Preise, die Kasse bleibt gesperrt. Nur Buchstaben und Ziffern. */
 export const DEMO_PRAEFIX = "price_demo";

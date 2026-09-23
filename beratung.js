@@ -6,7 +6,7 @@
 // Botschaft oder Preisrahmen; „etwas ruhiger / wilder / größer / günstiger" verschiebt beides. Namen und Texte des
 // Vorschlags sind Sprache, keine eigenen Produkte.
 
-import { finden, gefuehl, GEFUEHLE, groesse, GROESSEN } from "./sortiment.js";
+import { finden, gefuehl, GEFUEHLE, groesse, GROESSEN, produktTitel } from "./sortiment.js";
 
 const ALLE = GEFUEHLE.map((g) => g.id);
 
@@ -50,7 +50,7 @@ export const ANLAESSE = [
     absichten: [
       { id: "gratulieren", titel: "Herzlich gratulieren", satz: "Ein Gruß zum großen Tag.", gefuehl: "zart", groesse: "S", weil: "herzlich gratulieren" },
       { id: "mitfeiern", titel: "Den Tag mitfeiern", satz: "Ein Strauß, der auf die Feier passt.", gefuehl: "natuerlich", groesse: "M", weil: "den Tag mitfeiern" },
-      { id: "bleibt", titel: "Ein Geschenk, das bleibt", satz: "Großzügig, für das Brautpaar.", gefuehl: "elegant", groesse: "L", weil: "ein Geschenk machen, das bleibt" },
+      { id: "bleibt", titel: "Ein Geschenk, das bleibt", satz: "Großzügig, für das Brautpaar.", gefuehl: "elegant", groesse: "L", weil: "ein bleibendes Geschenk machen" },
     ],
     gefuehle: ["zart", "natuerlich", "elegant", "froehlich"],
     namen: { zart: "Schleierweiß", froehlich: "Glückstag", natuerlich: "Landpartie", elegant: "Jawort" },
@@ -95,12 +95,15 @@ export const ANLAESSE = [
   },
 ];
 
-/** Preisrahmen (optional) – er wählt die Größe; „egal" lässt die Botschaft entscheiden. Preise kommen aus dem Katalog. */
+/**
+ * Preisrahmen (optional) – er wählt die Größe; „egal" lässt die Botschaft entscheiden. Preise kommen aus dem Katalog.
+ * Jede Stufe nennt ihren Preis (Review 2026-09-23: keine Preisüberraschung); die Kennung „egal" bleibt für alte Links.
+ */
 export const PREISRAHMEN = [
   { id: "klein", groesse: "S", label: (p) => `Bis ${p}` },
   { id: "mittel", groesse: "M", label: (p) => `Etwa ${p}` },
-  { id: "gross", groesse: "L", label: () => "Darf besonders sein" },
-  { id: "egal", groesse: null, label: () => "Ist mir egal" },
+  { id: "gross", groesse: "L", label: (p) => `Etwa ${p}` },
+  { id: "egal", groesse: null, label: () => "Preis ist offen" },
 ];
 
 export const SCHRITTE = ["anlass", "absicht"];
@@ -178,6 +181,11 @@ export function vorschlag(roh, artikel) {
   const haupt = finden(artikel, gId, grId);
   if (!haupt) return null;
   const g = gefuehl(gId);
+  // Reihenfolge der Wahl (Nutzer 2026-09-23: „muss Sinn ergeben im Ergebnis"): die spätere Wahl gewinnt, und das
+  // Ergebnis sagt, warum. Botschaft → Gefühl + Größe; Preisrahmen → Größe; Größe von Hand → Größe; Richtung → Gefühl.
+  const rahmen = PREISRAHMEN.find((p) => p.id === w.preis) ?? null;
+  const groesseGrund = grId === ab.groesse ? "botschaft" : w.groesse ? "gewaehlt" : rahmen?.groesse ? "preis" : "botschaft";
+  const eigenesGefuehl = Boolean(w.gefuehl) && w.gefuehl !== (a.gefuehle.includes(ab.gefuehl) ? ab.gefuehl : a.gefuehle[0]);
   const nachbar = (feld, wert) => (wert && (feld === "gefuehl" ? finden(artikel, wert, grId) : finden(artikel, gId, wert)) ? wert : null);
   const groessen = GROESSEN.map((x) => x.id);
   const varianten = a.gefuehle
@@ -194,7 +202,17 @@ export function vorschlag(roh, artikel) {
     name: a.namen[gId] ?? g.name,
     ueberschrift: `Dein Strauß für ${a.fuer}`,
     text: `${g.text} Gebunden in ${a.farbworte}.`,
-    erklaerung: `Das passt zu deiner Auswahl, weil du ${ab.weil} möchtest und es ${g.name.toLowerCase()} wirken soll.`,
+    // Elas Stimme statt Rechenweg (Review 2026-09-23): „Floristin empfiehlt", nicht „das System hat errechnet".
+    erklaerung: `Wenn du ${ab.weil} möchtest${eigenesGefuehl ? ` und es ${g.name.toLowerCase()} sein soll` : ""}, würde ich dir diesen Strauß binden: ${g.merkmal} – in ${a.farbworte}.`,
+    /** Warum die Größe nicht die der Botschaft ist – `null`, wenn sie es ist (kein Satz nötig). */
+    groesseGrund: groesseGrund === "botschaft" ? null : groesseGrund,
+    groesseSatz: groesseGrund === "preis"
+      ? `Passend zu deinem Preisrahmen binde ich ihn in der Größe „${groesse(grId).name}“ – ${euro(haupt.cent)}.`
+      : groesseGrund === "gewaehlt" ? `In der Größe „${groesse(grId).name}“, wie du sie gewählt hast – ${euro(haupt.cent)}.` : null,
+    /** Der Preisrahmen gilt nur, solange er die Größe bestimmt – sonst zeigt ihn kein Chip mehr an. */
+    rahmen: groesseGrund === "preis" || (rahmen?.groesse && rahmen.groesse === grId) ? rahmen : null,
+    /** Das Produkt, das man kauft – stabil über alle Anlässe („Fröhlich · Besonders"). */
+    produkt: produktTitel(gId, grId),
     haupt,
     varianten,
     ruhiger: nachbar("gefuehl", schrittIn(RUHE_REIHE, gId, -1, a.gefuehle)),
@@ -202,6 +220,38 @@ export function vorschlag(roh, artikel) {
     groesser: nachbar("groesse", schrittIn(groessen, grId, 1, groessen)),
     guenstiger: nachbar("groesse", schrittIn(groessen, grId, -1, groessen)),
   };
+}
+
+/**
+ * Ein Strauß ohne Beratung („Alle Sträuße", Review 2026-09-23): derselbe stabile Name überall – „Elegant · Besonders" –
+ * statt eines Anlassnamens. `null`, wenn es ihn im Katalog nicht gibt.
+ */
+export function strauss(gefuehlId, groesseId, artikel) {
+  const g = gefuehl(gefuehlId);
+  const gr = groesse(groesseId) ?? groesse("M");
+  const haupt = g ? finden(artikel, g.id, gr.id) : null;
+  if (!haupt) return null;
+  return { auswahl: null, anlass: null, gefuehl: g, groesse: gr, name: produktTitel(g.id, gr.id), produkt: produktTitel(g.id, gr.id), text: g.text, haupt };
+}
+
+/** `#strauss=elegant&groesse=M` ↔ Gefühl und Größe (die Produktseite ohne Anlass). */
+export function straussAusHash(hash) {
+  const p = new URLSearchParams(String(hash ?? "").replace(/^#/, ""));
+  const g = gefuehl(p.get("strauss"));
+  if (!g) return null;
+  return { gefuehl: g.id, groesse: groesse(p.get("groesse"))?.id ?? "M", ersetze: /^price_[A-Za-z0-9]{1,200}$/.test(p.get("ersetze") ?? "") ? p.get("ersetze") : null };
+}
+
+export function hashAusStrauss(gefuehlId, groesseId, ersetze = null) {
+  const p = new URLSearchParams({ strauss: gefuehlId, groesse: groesseId });
+  if (ersetze) p.set("ersetze", ersetze);
+  return `#${p}`;
+}
+
+/** 2900 → „29 €", 3950 → „39,50 €" (nur für Sätze; die Seite formatiert Preise sonst selbst). */
+function euro(cent) {
+  const e = cent / 100;
+  return `${Number.isInteger(e) ? e : e.toFixed(2).replace(".", ",")} €`;
 }
 
 /** Bild zu einem Vorschlag: Elas Foto aus dem Katalog, sonst das Beispielbild der Anlasswelt. */

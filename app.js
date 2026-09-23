@@ -222,7 +222,9 @@ function wochenWahlHtml() {
       <select data-woche>${l.map((t, i) => {
         const x = teile(t);
         const vorn = i === 0 ? "Nächster Termin" : `Woche ab ${kurz(t.montag)}`;
-        return `<option value="${esc(t.montag)}"${t.montag === an ? " selected" : ""}>${esc(`${vorn} – Abholung ${x.abholung}${katalog.lieferung ? ` · Lieferung ${x.route}` : ""}`)}</option>`;
+        // Kurz halten: ein select ist so breit wie seine längste Option (gemessen 2026-09-23: 85 Zeichen → 637 px, die
+        // Produktseite brach auf dem Handy aus). Die Uhrzeiten stehen im Termin darunter.
+        return `<option value="${esc(t.montag)}"${t.montag === an ? " selected" : ""}>${esc(`${vorn} · Abholung ${kurz(t.abholung)}${katalog.lieferung ? ` · Lieferung ${kurz(t.route)}` : ""}`)}</option>`;
       }).join("")}</select>
       <span class="klein">Du kannst schon jetzt für einen späteren Anlass bestellen – bis zu ${l.length} Wochen im Voraus.</span>
     </label>`;

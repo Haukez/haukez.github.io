@@ -481,3 +481,13 @@ img.echt { filter: none !important; }
   .name-preis { flex-direction: column; align-items: flex-start; gap: 8px; }
   .name-preis .preis { text-align: left; }
 }
+/* Nichts darf die Spalten sprengen (gemessen 2026-09-23: die Wochenauswahl machte die Produktseite auf 375 px 695 px
+   breit, das Bild wuchs mit). Spalten dürfen schrumpfen, das Auswahlfeld nimmt nur die verfügbare Breite. */
+.produkt, .korb-raster, .vorschlag { grid-template-columns: minmax(0, 1fr); }
+.produkt > *, .korb-raster > *, .vorschlag > * { min-width: 0; }
+.woche-wahl select { width: 100%; min-width: 0; text-overflow: ellipsis; }
+@media (min-width: 900px) {
+  .produkt { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+  .korb-raster { grid-template-columns: minmax(0, 1fr) 380px; }
+  .vorschlag { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

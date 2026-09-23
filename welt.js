@@ -20,15 +20,28 @@ export const WELTEN = {
 };
 
 /**
- * Wie ein Gefühl die Welt verschiebt: `hell` mischt Weiß hinein, `saett` skaliert die Sättigung, `ton` mischt eine
- * Tönung hinein, `tief` dunkelt den Akzent ab. `bild` ist der CSS-Filter für die Fotos.
+ * Eigene Farbe je Gefühl (Nutzer 2026-09-23: „nur die Farbe für fröhlich kommt gut an, die anderen … sehe ich echt
+ * kaum"). Gemessen vorher: Zart lag nur ΔE 1–4 von neutral weg, Natürlich und Ausdrucksstark bei „Einfach so" ΔE 1
+ * voneinander – die Gefühle verschoben nur Sättigung und Helligkeit der Anlassfarbe. Jetzt hat jedes Gefühl einen
+ * eigenen Farbton; der Anlass tönt mit (`GEFUEHL_ANTEIL`).
  */
+export const GEFUEHL_FARBEN = {
+  zart: { grund: "#F5E6F6", flaeche: "#E6CDEA", akzent: "#8A4F8C" }, // Flieder, Blush
+  froehlich: { grund: "#FFEBCB", flaeche: "#FDD69C", akzent: "#C9571F" }, // Apricot, Buttergelb
+  natuerlich: { grund: "#E9F1DC", flaeche: "#D2E3BC", akzent: "#4F7334" }, // Salbei, Wiese
+  elegant: { grund: "#E0E9F6", flaeche: "#C6D5EC", akzent: "#2E4468" }, // Taubenblau, Tinte
+  ausdrucksstark: { grund: "#FDD5CF", flaeche: "#F8A99F", akzent: "#A8162F" }, // Beere, Rot
+};
+/** Wie stark das Gefühl die Anlassfarbe übernimmt; Trost bleibt zurückhaltend. */
+export const GEFUEHL_ANTEIL = { standard: 0.72, trost: 0.5 };
+
+/** Bildstimmung je Gefühl: CSS-Filter für Beispielbilder (Elas echte Fotos bleiben unverfälscht, `img.echt`). */
 export const WIRKUNG = {
-  zart: { hell: 0.4, saett: 0.72, ton: null, tief: -0.06, bild: "brightness(1.05) saturate(0.86)" },
-  froehlich: { hell: 0, saett: 1.28, ton: ["#FFD9A0", 0.1], tief: 0, bild: "saturate(1.08) brightness(1.02)" },
-  natuerlich: { hell: 0.1, saett: 0.95, ton: ["#DDE5C8", 0.22], tief: 0.02, bild: "saturate(0.98)" },
-  elegant: { hell: 0.18, saett: 0.55, ton: ["#E7E3DE", 0.15], tief: 0.12, bild: "saturate(0.88) contrast(1.04)" },
-  ausdrucksstark: { hell: -0.02, saett: 1.35, ton: null, tief: 0.1, bild: "saturate(1.12) contrast(1.03)" },
+  zart: { bild: "brightness(1.05) saturate(0.86)" },
+  froehlich: { bild: "saturate(1.08) brightness(1.02)" },
+  natuerlich: { bild: "saturate(0.98)" },
+  elegant: { bild: "saturate(0.88) contrast(1.04)" },
+  ausdrucksstark: { bild: "saturate(1.12) contrast(1.03)" },
 };
 
 // ------------------------------------------------------------------ Farbrechnung (rein)
@@ -155,16 +168,15 @@ function weltVoll(anlassId, gefuehlId) {
   const w = WELTEN[anlassId] ?? WELTEN.neutral;
   const g = WIRKUNG[gefuehlId];
   let { grund, flaeche, karte, akzent, tinte } = w;
-  if (g) {
-    const flaechig = (c) => {
-      let x = hsl(c, g.saett);
-      if (g.ton) x = mischen(x, g.ton[0], g.ton[1]);
-      return g.hell >= 0 ? mischen(x, "#FFFFFF", g.hell) : mischen(x, "#000000", -g.hell);
-    };
-    grund = flaechig(grund);
-    flaeche = flaechig(flaeche);
-    karte = mischen(karte, "#FFFFFF", Math.max(0, g.hell) * 0.5);
-    akzent = hsl(akzent, Math.min(1.4, 0.55 + g.saett * 0.45), -g.tief);
+  const eigen = GEFUEHL_FARBEN[gefuehlId];
+  if (g && eigen) {
+    // Flächen: der eigene Ton des Gefühls, der Anlass tönt mit. Der Akzent ist ganz der des Gefühls – ein Mischen quer
+    // über den Farbkreis ergäbe Braun (gemessen 2026-09-23: #855638).
+    const t = anlassId === "trost" ? GEFUEHL_ANTEIL.trost : GEFUEHL_ANTEIL.standard;
+    grund = mischen(grund, eigen.grund, t);
+    flaeche = mischen(flaeche, eigen.flaeche, t);
+    karte = mischen(karte, eigen.grund, 0.18);
+    akzent = anlassId === "trost" ? hsl(eigen.akzent, 0.7) : eigen.akzent;
   }
   return { grund, flaeche, karte, akzent, tinte, bild: g?.bild ?? (anlassId === "trost" ? "saturate(0.82)" : "none") };
 }

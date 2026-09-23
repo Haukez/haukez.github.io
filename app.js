@@ -732,6 +732,7 @@ function zeichnen() {
   inhalt.innerHTML = html;
   farbenSetzen(inhalt);
   radiosOrdnen(inhalt);
+  if (z.ansicht !== "vorschlag") zuVariantenZeigen(false);
   if (neu) {
     inhalt.classList.remove("einblenden");
     void inhalt.offsetWidth;
@@ -741,7 +742,49 @@ function zeichnen() {
     window.scrollTo({ top: zurueck ? lage.get(adresse) ?? 0 : 0, behavior: "auto" });
     inhalt.focus({ preventScroll: true });
   }
+  if (nachOben && z.ansicht === "vorschlag") {
+    nachOben = false;
+    zumVorschlag();
+  }
   korbZahl();
+}
+
+// ------------------------------------------------------------------ Varianten ↔ Vorschlag (Nutzer 2026-09-23)
+// Wer unten bei „Möchtest du eine andere Richtung?" wählt, gleitet sanft hoch zum neuen Vorschlag – so, dass
+// „Mein Vorschlag für dich" direkt unter dem Kopf steht. Ein Knopf führt zurück nach unten zu den Varianten.
+let nachOben = false;
+/** Erst wenn die Varianten einmal aus dem Blick waren (oben angekommen), darf ihr Wiederauftauchen den Knopf lösen. */
+let obenAngekommen = false;
+
+function kopfHoehe() {
+  return document.querySelector(".kopf")?.offsetHeight ?? 0;
+}
+
+function gleiten(el) {
+  if (!el) return;
+  const top = el.getBoundingClientRect().top + window.scrollY - kopfHoehe() - 12;
+  window.scrollTo({ top: Math.max(0, top), behavior: ruhig() ? "auto" : "smooth" });
+}
+
+function zumVorschlag() {
+  obenAngekommen = false;
+  gleiten(document.querySelector(".vorzeile"));
+  zuVariantenZeigen(true);
+}
+
+function zuVariantenZeigen(an) {
+  $("zu-varianten").hidden = !an;
+}
+
+/** Der Knopf verschwindet, sobald die Varianten wieder im Blick sind. */
+function variantenImBlick() {
+  const k = $("zu-varianten");
+  if (k.hidden) return;
+  const v = document.querySelector(".varianten");
+  if (!v) return;
+  const top = v.getBoundingClientRect().top;
+  if (top > window.innerHeight) obenAngekommen = true;
+  else if (obenAngekommen && top < window.innerHeight * 0.6) k.hidden = true;
 }
 
 /** Radiogruppen: nur die gewählte Option ist per Tab erreichbar, Pfeiltasten wechseln (siehe `pfeile`). */
@@ -837,6 +880,7 @@ function klick(ev) {
   if (d.vorschlag !== undefined && entwurf.absicht) {
     return gehe(hashAusAuswahl({ anlass: z.auswahl.anlass, absicht: entwurf.absicht, preis: entwurf.preis }));
   }
+  if ((d.gefuehl || d.groesse) && z.ansicht === "vorschlag" && el.closest(".varianten")) nachOben = true;
   if (d.gefuehl && z.auswahl) {
     return gehe(hashAusAuswahl({ ...z.auswahl, gefuehl: d.gefuehl }, z.ansicht === "produkt" ? "produkt" : null));
   }
@@ -1010,6 +1054,11 @@ async function laden() {
   document.addEventListener("focusin", vorschau);
   document.addEventListener("change", eingabe);
   document.addEventListener("keydown", pfeile);
+  $("zu-varianten").addEventListener("click", () => {
+    $("zu-varianten").hidden = true;
+    gleiten(document.querySelector(".varianten"));
+  });
+  window.addEventListener("scroll", variantenImBlick, { passive: true });
   document.addEventListener("input", eingabe);
 }
 

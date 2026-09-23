@@ -739,7 +739,12 @@ function zeichnen() {
     inhalt.classList.add("einblenden");
     // Nach dem Einblenden die Klasse lösen – sonst startet jede spätere Regeländerung die Animation neu.
     inhalt.addEventListener("animationend", () => inhalt.classList.remove("einblenden"), { once: true });
-    window.scrollTo({ top: zurueck ? lage.get(adresse) ?? 0 : 0, behavior: "auto" });
+    // Auf dem Vorschlag beginnt die Seite bei der ersten Überschrift – „Mein Vorschlag für dich" direkt unter dem Kopf
+    // (Nutzer 2026-09-23). Zurück (z. B. von den Details) landet weiter dort, wo man war.
+    const vorzeile = z.ansicht === "vorschlag" && !zurueck ? document.querySelector(".vorzeile") : null;
+    const top = vorzeile ? Math.max(0, seitenTop(vorzeile) - kopfHoehe() - 12)
+      : zurueck ? lage.get(adresse) ?? 0 : 0;
+    window.scrollTo({ top, behavior: "auto" });
     inhalt.focus({ preventScroll: true });
   }
   if (nachOben && z.ansicht === "vorschlag") {
@@ -760,9 +765,16 @@ function kopfHoehe() {
   return document.querySelector(".kopf")?.offsetHeight ?? 0;
 }
 
+/** Lage auf der Seite ohne Transformationen (die Einblendung verschiebt um einige Pixel, gemessen 12 px). */
+function seitenTop(el) {
+  let top = 0;
+  for (let e = el; e; e = e.offsetParent) top += e.offsetTop;
+  return top;
+}
+
 function gleiten(el) {
   if (!el) return;
-  const top = el.getBoundingClientRect().top + window.scrollY - kopfHoehe() - 12;
+  const top = seitenTop(el) - kopfHoehe() - 12;
   window.scrollTo({ top: Math.max(0, top), behavior: ruhig() ? "auto" : "smooth" });
 }
 
@@ -861,7 +873,9 @@ async function zurKasse(knopf) {
 // ------------------------------------------------------------------ Klicks und Eingaben (ein Zuhörer je Art)
 function klick(ev) {
   const el = ev.target.closest("[data-ziel], [data-absicht], [data-preis], [data-vorschlag], [data-gefuehl], [data-groesse], [data-rein], [data-art], [data-menge], [data-weg], [data-kasse]");
-  if (!el) return;
+  // <body> trägt data-gefuehl für die Farbwelt – ohne diese Grenze galt jeder Klick auf der Seite als „Gefühl gewählt"
+  // (gemessen 2026-09-23: Klick auf „Mehr zum Strauß" schrieb &gefuehl=… in die Adresse, „Zurück" landete oben).
+  if (!el || el === document.body) return;
   const d = el.dataset;
   const z = zustand();
   if (d.ziel !== undefined) {
@@ -1005,6 +1019,9 @@ async function katalogHolen() {
 }
 
 async function laden() {
+  // Die Seite führt den Bildlauf selbst (Vorschlag ab der ersten Überschrift, „Zurück" an die alte Stelle) – sonst stellt
+  // der Browser beim Neuladen seine eigene Lage wieder her (gemessen: y 0 statt der Überschrift).
+  if ("scrollRestoration" in history) history.scrollRestoration = "manual";
   try {
     korb = korbLesen(localStorage.getItem(SPEICHER));
   } catch {
@@ -1039,6 +1056,8 @@ async function laden() {
     return;
   }
   $("warenkorb-knopf").hidden = false;
+  // Erst messen, wenn die Schriften stehen – mit der Ersatzschrift lag die erste Überschrift 129 px tiefer.
+  await Promise.race([document.fonts?.ready, new Promise((r) => setTimeout(r, 1000))]);
   zeichnen();
   window.addEventListener("hashchange", seiteWechseln);
   window.addEventListener("popstate", seiteWechseln);

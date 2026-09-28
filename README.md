@@ -20,6 +20,15 @@ Gefühl und Größe kommen im Shop aus den Stripe-Metadaten (`stil`, `groesse`; 
 Rhythmus und Pausen vom Worker (Compass sendet sie). Ware wird nur mit echten Fotos gezeigt, sonst mit einer
 gekennzeichneten Zeichnung. Keine `style`-Attribute im HTML (CSP) – Farben setzt `app.js` über das CSSOM.
 
+**Saison-Design** ([Spec](../docs/specs/2026-09-28-saison-design.md)): Standard (das bisherige Aussehen), Frühling,
+Sommer, Herbst und Weihnachten (Adventskranz auf dem Tisch). Welches gilt, sagt der Worker im Katalog (`design`); den
+Saisonplan stellt Ela in Compass ein (Mein Unternehmen › Shop). Ohne Antwort des Workers gilt Standard.
+- `saison.js`: je Design Startbild (`bilder/saison/<id>_breit.jpg`), Handschrift-Zeile, Gruß, Farben und Ornament.
+- Ansehen am eigenen Rechner: `http://localhost:4321/?design=weihnachten` (wirkt nur auf localhost/127.0.0.1).
+- Ein neues Design braucht Einträge in `saison.js`, `../cloudflare/src/services/design.ts`,
+  `../src-tauri/src/shop_design.rs` und `../src/shop-design.ts` samt Vorschaubild in `../public/shop-saison/`; ein Test
+  prüft, dass die Listen gleich sind.
+
 **Demo:** `demo: true` in `config.js` zeigt ohne Worker alle 15 Sträuße und die Grußkarte als gekennzeichnete Vorschau.
 Der Warenkorb geht, die Kasse ist gesperrt und fragt nichts ab. Die Vase ist vorbereitet: `extras: ["karte", "vase"]`.
 

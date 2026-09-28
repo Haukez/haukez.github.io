@@ -17,6 +17,7 @@ import {
 import {
   aktiveExtras, demoKatalog, extraFinden, finden, FOTO_SATZ, gefuehl as gefuehlVon, GEFUEHLE, groesse as groesseVon, GROESSEN, SAISON_SATZ,
 } from "./sortiment.js";
+import { design as designVon, designWahl } from "./saison.js";
 import { sprache, STAERKE, weltFarben } from "./welt.js";
 import { liefertermin, tagText, wocheLesen, wochenWahl } from "./woche.js";
 
@@ -45,6 +46,8 @@ let entwurf = { absicht: null, preis: null };
 let letzteAuswahl = null;
 /** Nach der Rückkehr von Stripe: `{ daten }` (Daten vom Worker oder null) – nur bis zum nächsten Seitenwechsel. */
 let bestellt = null;
+/** Saison-Design (docs/specs/2026-09-28-saison-design.md) – der Worker entscheidet, bis dahin Standard. */
+let saison = designVon("standard");
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
@@ -125,7 +128,7 @@ function meldung(text, kurz = false) {
  * Tempo und Typografie (`data-welt`, `data-gefuehl`, `.leise`). Ohne Anlass neutral.
  */
 function welt(anlassId, gefuehlId, staerke = 1, nurFarben = false) {
-  const f = weltFarben(anlassId, gefuehlId, staerke);
+  const f = weltFarben(anlassId, gefuehlId, staerke, saison.farben);
   const r = document.documentElement.style;
   for (const [k, v] of [["grund", f.grund], ["flaeche", f.flaeche], ["karte", f.karte], ["akzent", f.akzent],
     ["akzent-text", f.akzentText], ["akzent-hauch", f.akzentHauch], ["tinte", f.tinte]]) r.setProperty(`--welt-${k}`, v);
@@ -137,6 +140,25 @@ function welt(anlassId, gefuehlId, staerke = 1, nurFarben = false) {
   document.body.dataset.gefuehl = gefuehlId ?? "";
   document.body.classList.toggle("leise", Boolean(anlass(anlassId)?.leise));
   document.body.classList.toggle("voll", staerke > 1);
+}
+
+/**
+ * Saison-Design anwenden (Spec 2026-09-28-saison-design K2): Kennzeichen `data-design`, die Töne der Seite über das
+ * CSSOM (CSP) und die Themenfarbe. Standard setzt keine eigenen Töne – dann gelten die aus styles.css unverändert.
+ */
+function designAnwenden(id) {
+  const alt = saison;
+  saison = designVon(id);
+  const r = document.documentElement;
+  r.dataset.design = id;
+  for (const k of Object.keys(alt.toene ?? {})) r.style.removeProperty(`--${k}`);
+  for (const [k, v] of Object.entries(saison.toene ?? {})) r.style.setProperty(`--${k}`, v);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", saison.themenfarbe);
+  // Das Ornament neben der Marke trägt die Saison auf jede Seite (Pfad aus dem festen Register, keine Eingabe).
+  document.querySelector(".saison-marke")?.remove();
+  if (saison.ornament) {
+    $("shop-unterzeile").insertAdjacentHTML("afterend", `<svg class="ic saison-marke" viewBox="0 0 24 24" aria-hidden="true"><path d="${saison.ornament}"/></svg>`);
+  }
 }
 
 /** Welt des Warenkorbs: die des ersten Straußes (Anlass gemerkt, Gefühl aus dem Katalog). */
@@ -294,10 +316,13 @@ function startHtml() {
   const x = teile(liefertermin(Date.now(), woche()));
   const dritter = katalog.lieferung ? ["lieferung", "Lieferung in Heide & Umgebung"] : ["laden", "Abholung in Heide"];
   const ela = konfig.ela && typeof konfig.ela.foto === "string" && konfig.ela.foto && typeof konfig.ela.text === "string" && konfig.ela.text;
+  // Bild, Zeile und Gruß kommen aus dem Saison-Design (saison.js); Standard ist das bisherige Bild ohne Gruß.
+  const orn = saison.ornament ? `<svg class="ic saison-ornament" viewBox="0 0 24 24" aria-hidden="true"><path d="${saison.ornament}"/></svg>` : "";
   return `<section class="buehne">
-      <img class="buehne-bild" src="bilder/held_breit.jpg" alt="Wiesenstrauß mit rosa Dahlien und Schmuckkörbchen in einer Keramikkanne auf einem Holztisch" width="1648" height="1024">
+      <img class="buehne-bild" src="${esc(saison.bild)}" alt="${esc(saison.alt)}" width="1648" height="1024">
       <div class="buehne-inhalt">
         ${m.art === "demo" ? `<p class="buehne-hinweis" role="note">Vorschau – bestellen geht noch nicht</p>` : m.art === "test" ? `<p class="buehne-hinweis" role="note">Testmodus – nur Testkarten, kein echtes Geld</p>` : ""}
+        ${saison.gruss ? `<p class="buehne-saison">${orn}<span>${esc(saison.gruss)}</span></p>` : ""}
         <h1 class="d buehne-satz">Was sollen die Blumen sagen?</h1>
         <p class="buehne-unter">Sag mir, was du ausdrücken möchtest – ich finde den passenden Strauß für dich.</p>
         <div class="buehne-knoepfe">
@@ -311,7 +336,7 @@ function startHtml() {
         <li>${ic("herz")}Jede Woche frisch</li>
         <li>${ic(dritter[0])}${esc(dritter[1])}</li>
       </ul>
-      <span class="logo buehne-zug" aria-hidden="true">Mehr<br>als Blumen</span>
+      <span class="logo buehne-zug" aria-hidden="true">${orn}${saison.zug.map(esc).join("<br>")}</span>
     </section>
     ${ela ? `<section class="ela">
       <img src="${esc(konfig.ela.foto)}" alt="${esc(konfig.name || "")}" width="480" height="600" loading="lazy">
@@ -1082,11 +1107,12 @@ async function katalogHolen() {
     }
     m = modusNachKatalog(m, d);
     fuss();
-    if (m.art === "demo") return katalogHolen();
+    // Auch die Vorschau trägt das Saison-Design des Workers, wenn er geantwortet hat.
+    if (m.art === "demo") return { ...(await katalogHolen()), design: d?.design ?? null };
     if (m.art !== "test") return null;
     return {
       artikel: Array.isArray(d.artikel) ? d.artikel : [], lieferung: Boolean(d.lieferung), woche: d.woche ?? null,
-      liefer: d.lieferung ? lieferDaten(d.liefer_cent, d.liefer_ab) : null,
+      liefer: d.lieferung ? lieferDaten(d.liefer_cent, d.liefer_ab) : null, design: d.design ?? null,
     };
   }
   const r = await fetch(`${m.worker}/shop/katalog`);
@@ -1094,7 +1120,7 @@ async function katalogHolen() {
   if (!r.ok || !d.bereit) return null;
   return {
     artikel: Array.isArray(d.artikel) ? d.artikel : [], lieferung: Boolean(d.lieferung), woche: d.woche ?? null,
-    liefer: d.lieferung ? lieferDaten(d.liefer_cent, d.liefer_ab) : null,
+    liefer: d.lieferung ? lieferDaten(d.liefer_cent, d.liefer_ab) : null, design: d.design ?? null,
   };
 }
 
@@ -1131,6 +1157,8 @@ async function laden() {
       return;
     }
     katalog = k;
+    // Vor dem ersten Zeichnen – sonst blitzt das Standardbild auf (Spec 2026-09-28-saison-design K2).
+    designAnwenden(designWahl(k.design, location));
     if (bestellt) bestellt = { daten: await bestellungHolen(sessionId) };
   } catch {
     $("inhalt").innerHTML = `<section class="bald"><h2 class="d">Gerade nicht erreichbar</h2><p>Der Shop antwortet im Moment nicht – bitte versuch es in ein paar Minuten noch einmal.</p><a class="btn2" href="">Neu laden</a></section>`;

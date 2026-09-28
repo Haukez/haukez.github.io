@@ -136,12 +136,13 @@ export const STAERKE = { vorschau: 0.25, botschaft: 0.35, strauss: 1.35, warenko
 
 /**
  * Die Farben eines Bildschirms: Welt des Anlasses, verschoben durch das Gefühl, mit `staerke` (0 … 1,5) zwischen
- * neutral und voll. Ohne Anlass neutral.
+ * neutral und voll. Ohne Anlass neutral. `basis` ist die neutrale Welt des Saison-Designs (saison.js `farben`) –
+ * ohne Angabe die bisherige.
  * → { grund, flaeche, karte, akzent, akzentText, akzentHauch, tinte, bild }
  */
-export function weltFarben(anlassId, gefuehlId, staerke = 1) {
-  const voll = weltVoll(anlassId, gefuehlId);
-  const n = WELTEN.neutral;
+export function weltFarben(anlassId, gefuehlId, staerke = 1, basis = WELTEN.neutral) {
+  const voll = weltVoll(anlassId, gefuehlId, basis);
+  const n = basis;
   const t = Math.max(0, Math.min(1.5, Number.isFinite(staerke) ? staerke : 1));
   let { grund, flaeche, karte, akzent, tinte } = voll;
   if (t < 1) {
@@ -164,8 +165,8 @@ export function weltFarben(anlassId, gefuehlId, staerke = 1) {
   };
 }
 
-function weltVoll(anlassId, gefuehlId) {
-  const w = WELTEN[anlassId] ?? WELTEN.neutral;
+function weltVoll(anlassId, gefuehlId, basis) {
+  const w = (anlassId !== "neutral" && WELTEN[anlassId]) || basis;
   const g = WIRKUNG[gefuehlId];
   let { grund, flaeche, karte, akzent, tinte } = w;
   const eigen = GEFUEHL_FARBEN[gefuehlId];

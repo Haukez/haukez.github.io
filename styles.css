@@ -11,6 +11,10 @@
   --linie: #E4DCD0; --linie2: #CFC5B7; --gruen: #2F4A36; --gruen-dunkel: #243A2A; --gruen-hauch: #EEF2EC; --sand: #EFE8DD;
   --rose: #8E4A44; --rose-hauch: #F6E9E5;
   --flaeche: #F1ECE3; --akzent: #8E4A44;
+  /* Schatten über dem Startbild (RGB) und Grund der Bühne – das Saison-Design setzt eigene (saison.js `toene`). */
+  --buehne-schatten: 33 24 17; --buehne-grund: #3A2C22;
+  /* Zusätzlicher Schatten oben (Kopf) und unten rechts (Handschrift) für helle Saisonbilder – im Standard 0. */
+  --buehne-oben: 0; --buehne-ecke: 0;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -279,11 +283,13 @@ body[data-ansicht="start"] .marke, body[data-ansicht="start"] .nav, body[data-an
 body[data-ansicht="start"] .marke-zeile { color: rgb(255 253 249 / .85); text-transform: uppercase; letter-spacing: .16em; font-size: 10px; width: 130px; }
 body[data-ansicht="start"] .icb:hover { background: rgb(255 253 249 / .12); }
 body[data-ansicht="start"] .inhalt { max-width: none; padding: 0; }
-.buehne { position: relative; min-height: max(600px, 100svh); overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; color: #FFFDF9; background: #3A2C22; }
+.buehne { position: relative; min-height: max(600px, 100svh); overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; color: #FFFDF9; background: var(--buehne-grund); }
 .buehne-bild { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 72% 50%; }
 .buehne::after { content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(90deg, rgb(33 24 17 / .78) 0%, rgb(33 24 17 / .55) 38%, rgb(33 24 17 / .08) 66%, transparent 80%),
-              linear-gradient(0deg, rgb(33 24 17 / .55) 0%, transparent 26%); }
+  background: linear-gradient(180deg, rgb(var(--buehne-schatten) / var(--buehne-oben)) 0%, transparent 20%),
+              radial-gradient(ellipse 34% 40% at 90% 86%, rgb(var(--buehne-schatten) / var(--buehne-ecke)) 0%, transparent 100%),
+              linear-gradient(90deg, rgb(var(--buehne-schatten) / .78) 0%, rgb(var(--buehne-schatten) / .55) 38%, rgb(var(--buehne-schatten) / .08) 66%, transparent 80%),
+              linear-gradient(0deg, rgb(var(--buehne-schatten) / .55) 0%, transparent 26%); }
 .buehne-inhalt { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 22px; padding: 120px 18px 32px; max-width: 640px; }
 .buehne-hinweis { margin: 0; padding: 6px 14px; border-radius: 999px; background: rgb(255 253 249 / .16); border: 1px solid rgb(255 253 249 / .35); font-size: 14px; }
 .buehne-satz { font-size: clamp(40px, 6vw, 68px); line-height: 1.04; font-weight: 500; letter-spacing: -.3px; text-shadow: 0 2px 18px rgb(0 0 0 / .25); }
@@ -301,9 +307,22 @@ body[data-ansicht="start"] .inhalt { max-width: none; padding: 0; }
 }
 @media (max-width: 899px) {
   .buehne-bild { object-position: 70% 50%; }
-  .buehne::after { background: linear-gradient(180deg, rgb(33 24 17 / .45) 0%, rgb(33 24 17 / .7) 55%, rgb(33 24 17 / .82) 100%); }
+  .buehne::after { background: linear-gradient(180deg, rgb(var(--buehne-schatten) / .45) 0%, rgb(var(--buehne-schatten) / .7) 55%, rgb(var(--buehne-schatten) / .82) 100%); }
   .buehne-zug { display: none; }
 }
+/* Saison-Design (docs/specs/2026-09-28-saison-design.md K1): Ornament über der Handschrift, auf dem Handy statt der
+   Handschrift ein Gruß über dem Satz. Standard hat beides nicht. */
+.buehne-zug .saison-ornament { display: block; width: 30px; height: 30px; margin: 0 0 8px auto; stroke-width: 1.3; opacity: .92; }
+.buehne-saison { display: none; margin: 0; align-items: center; gap: 10px; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: rgb(255 253 249 / .9); }
+.buehne-saison .saison-ornament { width: 18px; height: 18px; }
+@media (max-width: 899px) {
+  .buehne-saison { display: inline-flex; }
+}
+.saison-marke { width: 22px; height: 22px; margin-left: -4px; color: var(--rose); stroke-width: 1.3; }
+body[data-ansicht="start"] .saison-marke { color: rgb(255 253 249 / .85); }
+/* Nur ab 900 px: darunter bricht das Menü im Kopf um (gemessen bei 375 und 530 px: zwei Zeilen statt einer). Auf dem
+   Handy trägt der Gruß über dem Satz die Saison. */
+@media (max-width: 899px) { .saison-marke { display: none; } }
 
 /* ------------------------------------------------------------------ Scrollbar: dünn und schlicht (Nutzer 2026-09-23) */
 html { scrollbar-width: thin; scrollbar-color: #C9BEAE transparent; }
@@ -448,7 +467,7 @@ body[data-ansicht="start"] .inhalt.einblenden { animation-name: nur-blenden; }
 .buehne-knoepfe { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; }
 .buehne-link { color: #FFFDF9; font-size: 16px; text-underline-offset: 4px; }
 .buehne-link:hover { color: #FFFDF9; }
-.buehne-termin { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 10px; background: rgb(33 24 17 / .38); color: #FFFDF9; font-size: 15px; line-height: 1.4; }
+.buehne-termin { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 10px; background: rgb(var(--buehne-schatten) / .38); color: #FFFDF9; font-size: 15px; line-height: 1.4; }
 .buehne-termin .ic { flex: none; }
 .ela { display: grid; gap: 20px; align-items: center; max-width: 880px; margin: 40px auto 0; }
 .ela img { width: 100%; max-width: 280px; height: auto; border-radius: 12px; }

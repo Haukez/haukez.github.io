@@ -17,7 +17,7 @@ import {
 import {
   aktiveExtras, demoKatalog, extraFinden, finden, FOTO_SATZ, gefuehl as gefuehlVon, GEFUEHLE, groesse as groesseVon, GROESSEN, SAISON_SATZ,
 } from "./sortiment.js";
-import { design as designVon, designWahl } from "./saison.js";
+import { design as designVon, designWahl, saisonAnpassung } from "./saison.js";
 import { sprache, STAERKE, weltFarben } from "./welt.js";
 import { liefertermin, tagText, wocheLesen, wochenWahl } from "./woche.js";
 
@@ -159,6 +159,16 @@ function designAnwenden(id) {
   if (saison.ornament) {
     $("shop-unterzeile").insertAdjacentHTML("afterend", `<svg class="ic saison-marke" viewBox="0 0 24 24" aria-hidden="true"><path d="${saison.ornament}"/></svg>`);
   }
+}
+
+/** Eigenes Bild, Gruß und Handschrift des heutigen Abschnitts über den Stil legen – was fehlt, bleibt Vorgabe des Stils. */
+function anpassungAnwenden(a) {
+  saison = {
+    ...saison,
+    ...(a.bild ? { bild: a.bild, alt: a.name ? `Startbild – ${a.name}` : "Startbild der Saison" } : {}),
+    ...(a.gruss ? { gruss: a.gruss } : {}),
+    ...(a.zug ? { zug: a.zug } : {}),
+  };
 }
 
 /** Welt des Warenkorbs: die des ersten Straußes (Anlass gemerkt, Gefühl aus dem Katalog). */
@@ -1105,14 +1115,16 @@ async function katalogHolen() {
     } catch {
       d = null;
     }
+    // Das eigene Aussehen des Abschnitts gilt nur mit Fotos genau dieses Workers (vor dem Moduswechsel merken).
+    const saison = saisonAnpassung(d?.saison, m.worker);
     m = modusNachKatalog(m, d);
     fuss();
     // Auch die Vorschau trägt das Saison-Design des Workers, wenn er geantwortet hat.
-    if (m.art === "demo") return { ...(await katalogHolen()), design: d?.design ?? null };
+    if (m.art === "demo") return { ...(await katalogHolen()), design: d?.design ?? null, saison };
     if (m.art !== "test") return null;
     return {
       artikel: Array.isArray(d.artikel) ? d.artikel : [], lieferung: Boolean(d.lieferung), woche: d.woche ?? null,
-      liefer: d.lieferung ? lieferDaten(d.liefer_cent, d.liefer_ab) : null, design: d.design ?? null,
+      liefer: d.lieferung ? lieferDaten(d.liefer_cent, d.liefer_ab) : null, design: d.design ?? null, saison,
     };
   }
   const r = await fetch(`${m.worker}/shop/katalog`);
@@ -1120,7 +1132,7 @@ async function katalogHolen() {
   if (!r.ok || !d.bereit) return null;
   return {
     artikel: Array.isArray(d.artikel) ? d.artikel : [], lieferung: Boolean(d.lieferung), woche: d.woche ?? null,
-    liefer: d.lieferung ? lieferDaten(d.liefer_cent, d.liefer_ab) : null, design: d.design ?? null,
+    liefer: d.lieferung ? lieferDaten(d.liefer_cent, d.liefer_ab) : null, design: d.design ?? null, saison: saisonAnpassung(d.saison, m.worker),
   };
 }
 
@@ -1157,8 +1169,12 @@ async function laden() {
       return;
     }
     katalog = k;
-    // Vor dem ersten Zeichnen – sonst blitzt das Standardbild auf (Spec 2026-09-28-saison-design K2).
-    designAnwenden(designWahl(k.design, location));
+    // Vor dem ersten Zeichnen – sonst blitzt das Standardbild auf (Spec 2026-09-28-saison-design K2). Das eigene Bild und
+    // die Texte des Kalenderabschnitts gelten nur, wenn der Stil vom Worker kommt – nicht bei `?design=` (Spec
+    // 2026-09-28-saison-abschnitte K1/K2).
+    const stil = designWahl(k.design, location);
+    designAnwenden(stil);
+    if (stil === k.design && k.saison) anpassungAnwenden(k.saison);
     if (bestellt) bestellt = { daten: await bestellungHolen(sessionId) };
   } catch {
     $("inhalt").innerHTML = `<section class="bald"><h2 class="d">Gerade nicht erreichbar</h2><p>Der Shop antwortet im Moment nicht – bitte versuch es in ein paar Minuten noch einmal.</p><a class="btn2" href="">Neu laden</a></section>`;

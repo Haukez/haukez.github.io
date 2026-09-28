@@ -102,3 +102,30 @@ export function designWahl(vomWorker, ort) {
 export function design(id) {
   return DESIGNS[id] ?? DESIGNS.standard;
 }
+
+/** Grenzen wie im Worker (cloudflare/src/services/design.ts) – was länger ist, wird nicht gezeigt. */
+export const GRUSS_MAX = 40;
+export const ZUG_MAX = 22;
+const BILD_PFAD = /^\/shop\/bild\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$/;
+
+/**
+ * Eigenes Aussehen des heutigen Kalenderabschnitts aus dem Katalog (`saison`, Spec 2026-09-28-saison-abschnitte K1):
+ * Bild nur als Foto des eigenen Workers (`<worker>/shop/bild/<uuid>.jpg`), Texte nur in den Grenzen. Alles andere → null,
+ * dann gilt die Vorgabe des Stils. Die Texte setzt app.js immer escaped.
+ * @param {unknown} roh `saison` aus dem Katalog
+ * @param {string | undefined} worker Adresse des Workers, von dem der Katalog kam
+ * @returns {{ name: string | null, bild: string | null, gruss: string | null, zug: string[] | null }}
+ */
+export function saisonAnpassung(roh, worker) {
+  const s = roh && typeof roh === "object" && !Array.isArray(roh) ? roh : {};
+  const text = (x, max) => (typeof x === "string" && x.trim() && x.length <= max ? x.trim() : null);
+  let bild = null;
+  try {
+    const u = new URL(String(s.bild ?? ""));
+    if (worker && u.origin === new URL(worker).origin && BILD_PFAD.test(u.pathname) && !u.search && !u.hash) bild = u.href;
+  } catch {
+    bild = null;
+  }
+  const zug = Array.isArray(s.zug) && s.zug.length >= 1 && s.zug.length <= 2 && s.zug.every((z) => text(z, ZUG_MAX)) ? s.zug.map((z) => z.trim()) : null;
+  return { name: text(s.name, 40), bild, gruss: text(s.gruss, GRUSS_MAX), zug };
+}
